@@ -8,6 +8,7 @@
 ## Install dependencies:
 - npm install
 - npx expo install expo-image-picker
+- npx expo install react-dom react-native-web @expo/metro-runtime
 
 ## Run app:
 - npx expo start
