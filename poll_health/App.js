@@ -1,14 +1,63 @@
-import React from "react";
+import "react-native-gesture-handler";
+import React, { useEffect, useState } from "react";
 import { NavigationContainer } from "@react-navigation/native";
+import { View, Text, ActivityIndicator, StyleSheet } from "react-native";
+import * as tf from '@tensorflow/tfjs';
 import AppStack from "./navigation/Stack";
+import ModelService from "./services/modelService";
 
 export default function App() {
+  const [isTfReady, setIsTfReady] = useState(false);
+
+  useEffect(() => {
+    async function initializeTensorFlow() {
+      try {
+        // Wait for TensorFlow.js to be ready
+        await tf.ready();
+        console.log('TensorFlow.js initialized');
+        console.log('Backend:', tf.getBackend());
+        
+        // Initialize model service
+        await ModelService.initializeTensorFlow();
+        setIsTfReady(true);
+      } catch (error) {
+        console.error('Error initializing TensorFlow:', error);
+        setIsTfReady(true); // Continue anyway to show app
+      }
+    }
+
+    initializeTensorFlow();
+  }, []);
+
+  if (!isTfReady) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#007AFF" />
+        <Text style={styles.loadingText}>Initializing AI Model...</Text>
+      </View>
+    );
+  }
+
   return (
     <NavigationContainer>
       <AppStack />
     </NavigationContainer>
   );
 }
+
+const styles = StyleSheet.create({
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#fff',
+  },
+  loadingText: {
+    marginTop: 10,
+    fontSize: 16,
+    color: '#666',
+  },
+});
 
 // import React, { useState } from "react";
 // import { Button, Image, Text, View, StyleSheet } from "react-native";
