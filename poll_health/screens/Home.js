@@ -2,20 +2,20 @@ import React, { useState } from "react";
 import { Button, Image, Text, View, StyleSheet, ScrollView } from "react-native";
 import * as ImagePicker from "expo-image-picker";
 
-export default function Upload({ navigation }) {
+export default function Home({ navigation }) {
   const [image, setImage] = useState(null);
   const [result, setResult] = useState();
 
   const takePhoto = async () => {
-    let result = await ImagePicker.launchCameraAsync({
-      mediaTypes: "images",
-      allowsEditing: true,
-      quality: 1,
-    });
-    if (!result.canceled) {
-        setImage(result.assets[0].uri);
-        navigation.navigate("Details", { image: result.assets[0].uri });
-    }
+    setTimeout(async () => {
+      const result = await ImagePicker.launchCameraAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        quality: 1,
+      });
+      if (!result.canceled) {
+        console.log("Captured photo:", result.assets[0].uri);
+      }
+    }, 300);
   };
   
   const pickImage = async () => {
@@ -25,19 +25,18 @@ export default function Upload({ navigation }) {
       quality: 1,
     });
     if (!result.canceled) {
-      navigation.navigate("Details", { image: result.assets[0].uri });
+      setImage(result.assets[0].uri);
+      navigation.navigate("SubmissionDetails", { image: result.assets[0].uri });
     }
   };
 
   const handleRunModel = () => {
-    // placeholder for model result
     setResult("Model result will appear here");
   };
 
   return (
-    <ScrollView>
+    <ScrollView style = {{ backgroundColor: "#EAE2DC" }}>
     <View style={styles.container}>
-
       <View style={styles.buttonGroup}>
         <Button title="Take a Photo" onPress={takePhoto} />
       </View>
@@ -66,7 +65,8 @@ export default function Upload({ navigation }) {
 }
 
 const styles = StyleSheet.create({
-    buttonGroup: {
+  
+  buttonGroup: {
     marginVertical: 12, 
     width: "80%",
   },
@@ -75,6 +75,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     padding: 30,
+    backgroundColor: "#EAE2DC",
   },
   title: {
     fontSize: 20,

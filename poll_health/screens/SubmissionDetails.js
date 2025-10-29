@@ -1,7 +1,7 @@
 import React, { useState } from "react";
-import { Button, Image, Text, TextInput, View, StyleSheet } from "react-native";
+import { Button, Image, Text, TextInput, View, StyleSheet, ScrollView, Pressable } from "react-native";
 
-export default function DetailsScreen({ route, navigation }) {
+export default function SubmissionDetails({ route, navigation }) {
   const { image } = route.params;
   const [description, setDescription] = useState("");
   const [location, setLocation] = useState("");
@@ -12,10 +12,8 @@ export default function DetailsScreen({ route, navigation }) {
   };
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Add Details</Text>
-
-      <Image source={{ uri: image }} style={styles.imageSmall} />
+    <ScrollView style = {{ backgroundColor: "#EAE2DC" }}>
+      <Image source={{ uri: image }} style={styles.imageTop} />
 
       <TextInput
         style={styles.input}
@@ -30,9 +28,10 @@ export default function DetailsScreen({ route, navigation }) {
         value={location}
         onChangeText={setLocation}
       />
-
-      <Button title="Submit" onPress={handleSubmit} />
-    </View>
+      <Pressable style={styles.submitButton} onPress={handleSubmit}>
+        <Text style={{ color: "#ffffffff" }}>Submit</Text>
+      </Pressable>
+    </ScrollView>
   );
 }
 
@@ -55,12 +54,21 @@ const styles = StyleSheet.create({
     padding: 10,
     marginBottom: 15,
     borderRadius: 6,
+    alignSelf: "center",
   },
-  imageSmall: {
-    width: 200,
-    height: 200,
+  imageTop: {
+    width: "100%",
+    height: "100%",
     resizeMode: "contain",
     borderRadius: 8,
     marginBottom: 20,
+  },
+  submitButton: {
+    backgroundColor: "#606551",
+    paddingVertical: 15,
+    borderRadius: 8,
+    alignItems: "center",
+    width: "80%",
+    alignSelf: "center",
   },
 });
