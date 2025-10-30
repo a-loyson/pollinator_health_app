@@ -84,6 +84,7 @@ export default function Upload({ navigation }) {
 
         <View style={styles.buttonGroup}>
           <Button title="Take a Photo" onPress={takePhoto} color="#007AFF" />
+          <Text style={styles.mobileNote}>Mobile only</Text>
         </View>
         
         <View style={styles.buttonGroup}>
@@ -171,5 +172,12 @@ const styles = StyleSheet.create({
     marginTop: 10,
     fontSize: 14,
     color: '#666',
+  },
+  mobileNote: {
+    fontSize: 12,
+    color: '#999',
+    textAlign: 'center',
+    marginTop: 4,
+    fontStyle: 'italic',
   },
 });
