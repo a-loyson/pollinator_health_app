@@ -76,7 +76,7 @@ export default function Upload({ navigation }) {
 
   return (
     <ScrollView contentContainerStyle={styles.scrollContainer}>
-      <View style={styles.container}>
+      <View style={[styles.container, image && styles.containerWithImage]}>
         <Text style={styles.title}>Solidago Species Identifier</Text>
         <Text style={styles.description}>
           Take or select a photo of a Solidago (goldenrod) plant to identify its species
@@ -127,44 +127,50 @@ export default function Upload({ navigation }) {
 const styles = StyleSheet.create({
   scrollContainer: {
     flexGrow: 1,
-    paddingBottom: 40,
+    paddingBottom: 30,
   },
   buttonGroup: {
-    marginVertical: 12, 
+    marginVertical: 8, 
     width: "80%",
   },
   container: {
     justifyContent: "center",
     alignItems: "center",
-    padding: 30,
+    paddingHorizontal: 20,
+    paddingTop: 20,
+    paddingBottom: 30,
     minHeight: '100%',
+  },
+  containerWithImage: {
+    justifyContent: "flex-start",
+    paddingTop: 10,
   },
   title: {
     fontSize: 24,
     fontWeight: "bold",
-    marginBottom: 10,
-    marginTop: 30,
+    marginBottom: 8,
+    marginTop: 10,
     textAlign: 'center',
   },
   description: {
     fontSize: 14,
     color: '#666',
     textAlign: 'center',
-    marginBottom: 20,
-    paddingHorizontal: 20,
+    marginBottom: 15,
+    paddingHorizontal: 10,
   },
   subtitle: {
     fontSize: 16,
     fontWeight: "600",
-    marginVertical: 10,
+    marginVertical: 8,
   },
   previewContainer: {
     alignItems: "center",
-    marginVertical: 20,
+    marginVertical: 10,
   },
   image: {
-    width: 300,
-    height: 300,
+    width: 250,
+    height: 250,
     resizeMode: "contain",
     borderRadius: 8,
   },
