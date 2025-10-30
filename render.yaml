@@ -1,7 +1,7 @@
 services:
   - type: web
     name: pollinator-health-app
-    env: static
+    runtime: static
     buildCommand: npm install && npx expo export --platform web
     staticPublishPath: ./dist
     routes:
