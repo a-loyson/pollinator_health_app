@@ -75,7 +75,7 @@ export default function Upload({ navigation }) {
   };
 
   return (
-    <ScrollView>
+    <ScrollView contentContainerStyle={styles.scrollContainer}>
       <View style={styles.container}>
         <Text style={styles.title}>Solidago Species Identifier</Text>
         <Text style={styles.description}>
@@ -125,15 +125,19 @@ export default function Upload({ navigation }) {
 }
 
 const styles = StyleSheet.create({
+  scrollContainer: {
+    flexGrow: 1,
+    paddingBottom: 40,
+  },
   buttonGroup: {
     marginVertical: 12, 
     width: "80%",
   },
   container: {
-    flex: 1,
     justifyContent: "center",
     alignItems: "center",
     padding: 30,
+    minHeight: '100%',
   },
   title: {
     fontSize: 24,
