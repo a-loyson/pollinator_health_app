@@ -2,7 +2,7 @@ import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import Map from "../screens/Map";
 import AppStack from "./Stack"; 
 import { MaterialCommunityIcons, Ionicons } from "@expo/vector-icons";
-import CameraOptions from "../components/CameraOptions";
+import CameraOptions from "../components/CameraOptions.js";
 
 const Tab = createBottomTabNavigator();
 

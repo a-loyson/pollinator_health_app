@@ -5,7 +5,10 @@ export default function DetailsScreen({ route, navigation }) {
   const { image, prediction, allPredictions } = route.params;
 
   return (
-    <ScrollView style={styles.scrollContainer}>
+    <ScrollView 
+      contentContainerStyle = {{paddingBottom: 100}}
+      style={styles.scrollContainer}
+    >
       <View style={styles.container}>
         <Text style={styles.title}>Species Identification Results</Text>
 

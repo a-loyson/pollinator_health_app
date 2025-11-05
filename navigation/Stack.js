@@ -4,6 +4,7 @@ import Map from "../screens/Map";
 import Home from "../screens/Home";
 import SubmissionDetails from "../screens/SubmissionDetails";
 import SightingDetails from "../screens/SightingDetails";
+import DetailsScreen from "../screens/details";
 import { MaterialCommunityIcons, Ionicons } from "@expo/vector-icons";
 import { Pressable} from "react-native-gesture-handler";
 import { StyleSheet } from "react-native";
@@ -29,6 +30,12 @@ export default function AppStack() {
               <Ionicons name="person-outline" size={20} color="#EAE2DC" />
             </Pressable>
           ),
+        }} />
+      <Stack.Screen 
+        name = "Details"
+        component={DetailsScreen}
+        options={{
+          title: "Plant Details",
         }} />
       <Stack.Screen 
         name="SubmissionDetails" 
