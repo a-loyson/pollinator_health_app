@@ -1,18 +1,37 @@
 import React, { useState } from "react";
 import { Button, Image, Text, TextInput, View, StyleSheet, ScrollView, Pressable } from "react-native";
+import ModelService from "../services/modelService";
 
 export default function SubmissionDetails({ route, navigation }) {
   const { image } = route.params;
   const [description, setDescription] = useState("");
   const [location, setLocation] = useState("");
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
 
-  const handleSubmit = () => {
-    console.log({ image, description, location });
-    alert("Submitted!\n" + JSON.stringify({ description, location }, null, 2));
+
+  const handleSubmit = async () => {
+    if (!image) return;
+    
+    setIsAnalyzing(true);
+    try {
+      const prediction = await ModelService.predictSpecies(image);
+      navigation.push("Details", {
+        image,
+        prediction: prediction.topPrediction,
+        allPredictions: prediction.allPredictions,
+        description,
+        location,
+      });
+
+    } catch (error) {
+      Alert.alert("Error", "Could not analyze image: " + error.message);
+    } finally {
+      setIsAnalyzing(false);
+    }
   };
 
   return (
-    <ScrollView style = {{ backgroundColor: "#EAE2DC" }}>
+    <ScrollView style = {{ backgroundColor: "#EAE2DC" }} contentContainerStyle={{ paddingBottom: 50 }}>
       <Image source={{ uri: image }} style={styles.imageTop} />
 
       <TextInput
@@ -28,7 +47,9 @@ export default function SubmissionDetails({ route, navigation }) {
         value={location}
         onChangeText={setLocation}
       />
-      <Pressable style={styles.submitButton} onPress={handleSubmit}>
+      <Pressable style={styles.submitButton} 
+        onPress={handleSubmit}             
+        disabled={!image || isAnalyzing}>
         <Text style={{ color: "#ffffffff" }}>Submit</Text>
       </Pressable>
     </ScrollView>

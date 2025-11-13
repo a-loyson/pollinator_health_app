@@ -7,6 +7,17 @@ import { useNavigation } from "@react-navigation/native";
 export default function CameraOptions() {
   const [showOptions, setShowOptions] = useState(false);
   const navigation = useNavigation();
+  const [nextImage, setNextImage] = useState(null);
+
+  useEffect(() => {
+    if (!showOptions && nextImage) {
+      navigation.navigate("Home", {
+        screen: "SubmissionDetails",
+        params: { image: nextImage },
+      });
+      setNextImage(null);
+    }
+  }, [showOptions]);
 
   useEffect(() => {
     (async () => {
@@ -14,33 +25,43 @@ export default function CameraOptions() {
       await ImagePicker.requestMediaLibraryPermissionsAsync();
     })();
   }, []);
-
+  
   const takePhoto = async () => {
-    setShowOptions(false);
+    const { status } = await ImagePicker.requestCameraPermissionsAsync();
+    if (status !== "granted") {
+      Alert.alert("Permission Denied", "Camera permission is required to take photos");
+      return;
+    }
+
     const result = await ImagePicker.launchCameraAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      mediaTypes: "images",
+      allowsEditing: true,
       quality: 1,
     });
+
     if (!result.canceled) {
-      console.log("Captured photo:", result.assets[0].uri);
-      navigation.navigate("Home", {
-        screen: "SubmissionDetails",
-        params: { image: result.assets[0].uri },
-      });
+      setNextImage(result.assets[0].uri);
+      setShowOptions(false); 
     }
   };
 
   const pickImage = async () => {
-    setShowOptions(false);
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== "granted") {
+      Alert.alert("Permission Denied", "Photo library permission is required");
+      return;
+    }
+
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      mediaTypes: "images",
+      allowsEditing: true,
       quality: 1,
     });
-    if (!result.canceled) console.log("Picked image:", result.assets[0].uri);
-    navigation.navigate("Home", {
-        screen: "SubmissionDetails",
-        params: { image: result.assets[0].uri },
-      });
+
+    if (!result.canceled) {
+      setNextImage(result.assets[0].uri);
+      setShowOptions(false);
+    }
   };
 
   return (

@@ -128,6 +128,7 @@ const styles = StyleSheet.create({
   scrollContainer: {
     flexGrow: 1,
     paddingBottom: 100,
+    backgroundColor: "#EAE2DC",
   },
   buttonGroup: {
     marginVertical: 8, 

@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { Button, Image, Text, View, StyleSheet, ScrollView } from "react-native";
 
 export default function DetailsScreen({ route, navigation }) {
-  const { image, prediction, allPredictions } = route.params;
+  const { image, prediction, allPredictions, description, location } = route.params;
 
   return (
     <ScrollView 
@@ -73,7 +73,7 @@ export default function DetailsScreen({ route, navigation }) {
         <View style={styles.buttonContainer}>
           <Button 
             title="Analyze Another Plant" 
-            onPress={() => navigation.goBack()} 
+            onPress={() => navigation.navigate("Home")} 
             color="#007AFF"
           />
         </View>
