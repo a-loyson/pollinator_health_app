@@ -35,7 +35,7 @@ export default function AppStack() {
         name = "Details"
         component={DetailsScreen}
         options={{
-          title: "Plant Details",
+          title: "Species Identification Results",
         }} />
       <Stack.Screen 
         name="SubmissionDetails" 

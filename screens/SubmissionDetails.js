@@ -52,6 +52,10 @@ export default function SubmissionDetails({ route, navigation }) {
         disabled={!image || isAnalyzing}>
         <Text style={{ color: "#ffffffff" }}>Submit</Text>
       </Pressable>
+      <Pressable style={styles.cancelButton} 
+        onPress={() => navigation.goBack()}>                  
+        <Text style={{ color: "#000000ff" }}>Cancel</Text>
+      </Pressable>
     </ScrollView>
   );
 }
@@ -91,5 +95,24 @@ const styles = StyleSheet.create({
     alignItems: "center",
     width: "80%",
     alignSelf: "center",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 10,
+    elevation: 5,
   },
+    cancelButton: {
+    backgroundColor: "rgba(255, 255, 255, 1)",
+    top: 10, 
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 10,
+    elevation: 5,
+    paddingVertical: 15,
+    borderRadius: 8,
+    alignItems: "center",
+    width: "80%",
+    alignSelf: "center",
+    },
 });

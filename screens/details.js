@@ -1,4 +1,3 @@
-import React, { useState } from "react";
 import { Button, Image, Text, View, StyleSheet, ScrollView } from "react-native";
 
 export default function DetailsScreen({ route, navigation }) {
@@ -10,8 +9,6 @@ export default function DetailsScreen({ route, navigation }) {
       style={styles.scrollContainer}
     >
       <View style={styles.container}>
-        <Text style={styles.title}>Species Identification Results</Text>
-
         <View style={styles.imageContainer}>
           <Image source={{ uri: image }} style={styles.image} />
         </View>
@@ -74,7 +71,7 @@ export default function DetailsScreen({ route, navigation }) {
           <Button 
             title="Analyze Another Plant" 
             onPress={() => navigation.navigate("Home")} 
-            color="#007AFF"
+            color="#7E8973"
           />
         </View>
       </View>
@@ -85,7 +82,7 @@ export default function DetailsScreen({ route, navigation }) {
 const styles = StyleSheet.create({
   scrollContainer: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: '#eae2dc',
   },
   container: {
     padding: 20,
