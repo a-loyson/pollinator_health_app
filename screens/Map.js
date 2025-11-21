@@ -1,7 +1,10 @@
-import React, { useState } from "react";
-import { Button, Image, Text, TextInput, View, StyleSheet } from "react-native";
+import React, { useState, useEffect } from "react";
+import { Text, View, StyleSheet } from "react-native";
 import MapView, { PROVIDER_GOOGLE, Marker } from 'react-native-maps';
 import { Pressable } from "react-native-gesture-handler";
+import * as Location from "expo-location";
+import { getSightings } from "../services/SightingService"
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 const initial_region = {
   latitude: 40.037945540082966,
@@ -11,37 +14,61 @@ const initial_region = {
 };
 
 export default function Map({ route, navigation }) {
-  const temp_locations = {
-    "Solidago_juncea": { latitude: 40.037945540082966, longitude: -75.34229987537816 },
-    "Solidago_mollis": { latitude: 40.047945540082966, longitude: -75.35229987537816 },
-    "Solidago_canadensis": { latitude: 40.057945540082966, longitude: -75.36229987537816 },
-  }; 
-  
+  const [region, setRegion] = useState(initial_region);
   const [selectedPin, setSelectedPin] = useState(null);
+  const [savedSightings, setSavedSightings] = useState([]);
+
+  useEffect(() => {
+    (async () => {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status === "granted") {
+        try {
+          const loc = await Location.getCurrentPositionAsync({});
+          setRegion({
+            ...region,
+            latitude: loc.coords.latitude,
+            longitude: loc.coords.longitude,
+          });
+        } catch (err) {
+          console.log("Location error:", err);
+        }
+      }
+
+      const data = await getSightings();
+
+  const cleaned = (data || []).map((s) => ({
+    species: s.prediction?.species,
+    latitude: s.location?.latitude,
+    longitude: s.location?.longitude,
+  }));
+
+  setSavedSightings(cleaned);
+    })();
+  }, []);
 
   return (
     <View style={styles.container}>
       <MapView style={styles.map} 
       provider={PROVIDER_GOOGLE} 
-      initialRegion={initial_region}
+      initialRegion={region}
       showsUserLocation={true}
       onPress={() => setSelectedPin(null)}
       >
-        {Object.entries(temp_locations).map(([name, coords]) => (
-          <Marker
-            key={name}
-            coordinate={{
-              latitude: coords.latitude,
-              longitude: coords.longitude,
-            }}
-            title={name.replace("_", " ")}
-            onPress={() => setSelectedPin({ name, coords })}
-          />
-        ))}
+      {savedSightings.map((item, index) => (
+        <Marker
+          key={index}
+          coordinate={{
+            latitude: item.latitude,
+            longitude: item.longitude,
+          }}
+          title={item.species}
+          onPress={() => setSelectedPin({ name: item.species, coords: item })}
+        />
+      ))}
       </MapView>
       {selectedPin && (
         <View style={styles.bottomPanel}>
-          <Text style={styles.panelTitle}>{selectedPin.name.replace("_", " ")}</Text>
+          <Text style={styles.panelTitle}>{selectedPin.name}</Text>
           <Pressable
             style={styles.detailsButton}
             onPress={() => alert(`More details about ${selectedPin.name}`)}

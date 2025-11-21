@@ -2,6 +2,20 @@ import React, { useState } from "react";
 import { Button, Image, Text, View, StyleSheet, ScrollView, Alert, ActivityIndicator } from "react-native";
 import * as ImagePicker from "expo-image-picker";
 import ModelService from "../services/modelService";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+
+// Add this function inside your component
+const resetSightings = async () => {
+  try {
+    await AsyncStorage.removeItem("sightings"); // or use clear() to wipe everything
+    console.log("✅ AsyncStorage 'sightings' reset!");
+    Alert.alert("AsyncStorage cleared", "Sightings have been reset.");
+  } catch (e) {
+    console.log("Error resetting sightings:", e);
+    Alert.alert("Error", "Failed to reset sightings.");
+  }
+};
+
 
 export default function Upload({ navigation }) {
   const [image, setImage] = useState(null);
@@ -112,6 +126,15 @@ export default function Upload({ navigation }) {
             color="#28A745"
           />
         </View>
+
+        <View style={styles.buttonGroup}>
+        <Button 
+          title="Reset Sightings (Debug)" 
+          onPress={resetSightings} 
+          color="orange"
+        />
+      </View>
+
 
         {isAnalyzing && (
           <View style={styles.loadingContainer}>
