@@ -72,7 +72,9 @@ export default function Upload({ navigation }) {
         vgg19AllPredictions: prediction.vgg19AllPredictions,
         vgg19ModelAccuracy: prediction.vgg19ModelAccuracy,
         combinedAccuracy: prediction.combinedAccuracy,
-        bertConfidence: prediction.bertConfidence
+        bertConfidence: prediction.bertConfidence,
+        predictedSpecies: prediction.predictedSpecies,
+        bestModel: prediction.bestModel
       });
     } catch (error) {
       console.error('Prediction error:', error);

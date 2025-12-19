@@ -15,7 +15,9 @@ export default function DetailsScreen({ route, navigation }) {
     vgg19AllPredictions,
     vgg19ModelAccuracy,
     combinedAccuracy,
-    bertConfidence
+    bertConfidence,
+    predictedSpecies,
+    bestModel
   } = route.params;
 
   return (
@@ -32,12 +34,16 @@ export default function DetailsScreen({ route, navigation }) {
 
         {prediction ? (
           <>
-            {/* Combined Accuracy Card */}
+            {/* Combined Species and Accuracy Card */}
             <View style={styles.combinedAccuracyCard}>
-              <Text style={styles.combinedAccuracyTitle}>Combined Model Accuracy</Text>
+              <Text style={styles.combinedAccuracyTitle}>Predicted Species</Text>
+              <Text style={styles.speciesName}>{predictedSpecies || 'Unknown'}</Text>
               <Text style={styles.combinedAccuracyValue}>{combinedAccuracy}%</Text>
               <Text style={styles.combinedAccuracySubtext}>
                 BERT + VGG19 + InceptionV3 + ConvNeXt
+              </Text>
+              <Text style={styles.bestModelText}>
+                Best prediction from {bestModel || 'combined models'}
               </Text>
             </View>
 
@@ -62,8 +68,8 @@ export default function DetailsScreen({ route, navigation }) {
               </View>
             </View>}
 
-            {/* ConvNeXt Model Results */}
-            <View style={styles.predictionCard}>
+            {/* ConvNeXt Model Results - HIDDEN */}
+            {false && <View style={styles.predictionCard}>
               <Text style={styles.sectionTitle}>ConvNeXt Model - Identified Species</Text>
               <Text style={styles.speciesName}>{prediction.species}</Text>
               <View style={styles.confidenceContainer}>
@@ -80,10 +86,10 @@ export default function DetailsScreen({ route, navigation }) {
                   ]} 
                 />
               </View>
-            </View>
+            </View>}
 
-            {/* InceptionV3 Model Results */}
-            {inceptionV3Prediction && (
+            {/* InceptionV3 Model Results - HIDDEN */}
+            {false && inceptionV3Prediction && (
               <View style={styles.predictionCard}>
                 <Text style={styles.sectionTitle}>InceptionV3 Model - Identified Species</Text>
                 <Text style={styles.speciesName}>{inceptionV3Prediction.species}</Text>
@@ -105,8 +111,8 @@ export default function DetailsScreen({ route, navigation }) {
               </View>
             )}
 
-            {/* VGG19 Model Results */}
-            {vgg19Prediction && (
+            {/* VGG19 Model Results - HIDDEN */}
+            {false && vgg19Prediction && (
               <View style={styles.predictionCard}>
                 <Text style={styles.sectionTitle}>VGG19 Model - Identified Species</Text>
                 <Text style={styles.speciesName}>{vgg19Prediction.species}</Text>
@@ -128,8 +134,8 @@ export default function DetailsScreen({ route, navigation }) {
               </View>
             )}
 
-            {/* ConvNeXt Model Alternative Predictions */}
-            {allPredictions && allPredictions.length > 1 && (
+            {/* ConvNeXt Model Alternative Predictions - HIDDEN */}
+            {false && allPredictions && allPredictions.length > 1 && (
               <View style={styles.alternativeCard}>
                 <Text style={styles.sectionTitle}>ConvNeXt Model - Alternative Predictions</Text>
                 {allPredictions.slice(1).map((pred, index) => (
@@ -145,8 +151,8 @@ export default function DetailsScreen({ route, navigation }) {
               </View>
             )}
 
-            {/* InceptionV3 Model Alternative Predictions */}
-            {inceptionV3AllPredictions && inceptionV3AllPredictions.length > 1 && (
+            {/* InceptionV3 Model Alternative Predictions - HIDDEN */}
+            {false && inceptionV3AllPredictions && inceptionV3AllPredictions.length > 1 && (
               <View style={styles.alternativeCard}>
                 <Text style={styles.sectionTitle}>InceptionV3 Model - Alternative Predictions</Text>
                 {inceptionV3AllPredictions.slice(1).map((pred, index) => (
@@ -162,8 +168,8 @@ export default function DetailsScreen({ route, navigation }) {
               </View>
             )}
 
-            {/* VGG19 Model Alternative Predictions */}
-            {vgg19AllPredictions && vgg19AllPredictions.length > 1 && (
+            {/* VGG19 Model Alternative Predictions - HIDDEN */}
+            {false && vgg19AllPredictions && vgg19AllPredictions.length > 1 && (
               <View style={styles.alternativeCard}>
                 <Text style={styles.sectionTitle}>VGG19 Model - Alternative Predictions</Text>
                 {vgg19AllPredictions.slice(1).map((pred, index) => (
@@ -179,14 +185,15 @@ export default function DetailsScreen({ route, navigation }) {
               </View>
             )}
 
-            <View style={styles.infoCard}>
+            {/* About Solidago - HIDDEN */}
+            {false && <View style={styles.infoCard}>
               <Text style={styles.infoTitle}>About Solidago (Goldenrod)</Text>
               <Text style={styles.infoText}>
                 Solidago plants are flowering plants in the family Asteraceae. 
                 They are commonly known as goldenrods and are important for 
                 pollinators, particularly bees and butterflies.
               </Text>
-            </View>
+            </View>}
           </>
         ) : (
           <View style={styles.errorCard}>
@@ -244,10 +251,46 @@ const styles = StyleSheet.create({
     shadowRadius: 3.84,
     elevation: 5,
   },
+  speciesCard: {
+    width: '100%',
+    backgroundColor: '#007AFF',
+    padding: 25,
+    borderRadius: 15,
+    marginBottom: 15,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4.65,
+    elevation: 6,
+  },
+  speciesTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#FFFFFF',
+    opacity: 0.9,
+    marginBottom: 8,
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+  },
+  speciesName: {
+    fontSize: 28,
+    fontWeight: 'bold',
+    color: '#FFFFFF',
+    marginBottom: 8,
+    textAlign: 'center',
+    fontStyle: 'italic',
+  },
+  speciesSubtext: {
+    fontSize: 12,
+    color: '#FFFFFF',
+    opacity: 0.8,
+    textAlign: 'center',
+  },
   combinedAccuracyCard: {
     width: '100%',
     backgroundColor: '#E8E8E8',
-    padding: 20,
+    padding: 25,
     borderRadius: 15,
     marginBottom: 15,
     shadowColor: '#000',
@@ -258,24 +301,39 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   combinedAccuracyTitle: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#333',
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#666',
     textTransform: 'uppercase',
     letterSpacing: 1,
     marginBottom: 10,
+  },
+  speciesName: {
+    fontSize: 32,
+    fontWeight: 'bold',
+    color: '#007AFF',
+    marginBottom: 15,
+    textAlign: 'center',
+    fontStyle: 'italic',
   },
   combinedAccuracyValue: {
     fontSize: 48,
     fontWeight: 'bold',
     color: '#007AFF',
-    marginBottom: 10,
+    marginBottom: 5,
   },
   combinedAccuracySubtext: {
     fontSize: 12,
     color: '#666',
     textAlign: 'center',
     marginTop: 5,
+    marginBottom: 8,
+  },
+  bestModelText: {
+    fontSize: 11,
+    color: '#888',
+    textAlign: 'center',
+    fontStyle: 'italic',
   },
   bertInfoContainer: {
     backgroundColor: 'rgba(255, 255, 255, 0.2)',

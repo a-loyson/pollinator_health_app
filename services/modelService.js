@@ -328,44 +328,44 @@ class ModelService {
       const hasTextInput = textScores !== null;
       
       // Combine predictions from all models
-      // Average the three image models first
-      const avgImagePredictions = this.speciesLabels.map((species, index) => {
-        const avgConf = (
-          primaryPredictions[index].confidence +
-          inceptionV3Predictions[index].confidence +
-          vgg19Predictions[index].confidence
-        ) / 3;
+      // Find the highest confidence prediction across all three image models for each species
+      const maxImagePredictions = this.speciesLabels.map((species, index) => {
+        const primaryConf = primaryPredictions[index].confidence;
+        const inceptionConf = inceptionV3Predictions[index].confidence;
+        const vgg19Conf = vgg19Predictions[index].confidence;
+        
+        // Take the maximum confidence from any of the three models
+        const maxConf = Math.max(primaryConf, inceptionConf, vgg19Conf);
+        
+        // Track which model had the highest confidence
+        let bestModel = 'ConvNeXt';
+        if (inceptionConf === maxConf) bestModel = 'InceptionV3';
+        else if (vgg19Conf === maxConf) bestModel = 'VGG19';
         
         return {
           class: index,
           species: species,
-          confidence: avgConf,
-          confidencePercentage: (avgConf * 100).toFixed(2)
+          confidence: maxConf,
+          confidencePercentage: (maxConf * 100).toFixed(2),
+          bestModel: bestModel,
+          primaryConf: primaryConf,
+          inceptionConf: inceptionConf,
+          vgg19Conf: vgg19Conf
         };
       });
       
-      // Combine image average with text scores
-      const combinedPredictions = this.combineModelPredictions(avgImagePredictions, textScores, 0.3);
+      // Combine best image predictions with text scores
+      const combinedPredictions = this.combineModelPredictions(maxImagePredictions, textScores, 0.3);
       const combinedTopPrediction = combinedPredictions[0];
       
-      // Calculate overall combined accuracy (average of top predictions from all models)
+      // Calculate overall combined accuracy using the top prediction from combined results
       let combinedAccuracy;
       if (hasTextInput) {
-        // Include BERT text confidence in combined accuracy
-        const bertTextConfidence = textScores[combinedTopPrediction.species] || 0;
-        combinedAccuracy = (
-          (parseFloat(primaryTopPrediction.confidencePercentage) +
-          parseFloat(inceptionV3TopPrediction.confidencePercentage) +
-          parseFloat(vgg19TopPrediction.confidencePercentage)) / 3 * 0.7 +
-          bertTextConfidence * 100 * 0.3
-        ).toFixed(2);
+        // The combined prediction already includes BERT weighting
+        combinedAccuracy = parseFloat(combinedTopPrediction.confidencePercentage).toFixed(2);
       } else {
-        // Average of three image models only
-        combinedAccuracy = (
-          (parseFloat(primaryTopPrediction.confidencePercentage) +
-          parseFloat(inceptionV3TopPrediction.confidencePercentage) +
-          parseFloat(vgg19TopPrediction.confidencePercentage)) / 3
-        ).toFixed(2);
+        // Use the max confidence from image models
+        combinedAccuracy = parseFloat(combinedTopPrediction.confidencePercentage).toFixed(2);
       }
       
       console.log('Predictions complete');
@@ -383,9 +383,11 @@ class ModelService {
       preprocessedImage.dispose();
       
       return {
-        // Combined results
+        // Combined results - this is the final prediction
         combinedAccuracy: combinedAccuracy,
         combinedTopPrediction: combinedTopPrediction,
+        predictedSpecies: combinedTopPrediction.species,
+        bestModel: combinedTopPrediction.bestModel,
         bertConfidence: hasTextInput ? (textScores[combinedTopPrediction.species] * 100).toFixed(2) : null,
         
         // Primary model results
