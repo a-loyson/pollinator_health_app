@@ -1,11 +1,12 @@
 import React, { useState } from "react";
-import { Button, Image, Text, View, StyleSheet, ScrollView, Alert, ActivityIndicator } from "react-native";
+import { Button, Image, Text, View, StyleSheet, ScrollView, Alert, ActivityIndicator, TextInput } from "react-native";
 import * as ImagePicker from "expo-image-picker";
 import ModelService from "../services/modelService";
 
 export default function Upload({ navigation }) {
   const [image, setImage] = useState(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [plantDescription, setPlantDescription] = useState('');
 
   const takePhoto = async () => {
     const { status } = await ImagePicker.requestCameraPermissionsAsync();
@@ -53,15 +54,25 @@ export default function Upload({ navigation }) {
 
     try {
       console.log('Starting prediction...');
-      const prediction = await ModelService.predictSpecies(image);
+      const prediction = await ModelService.predictSpecies(image, plantDescription);
       
       console.log('Prediction result:', prediction);
       
       // Navigate to Details screen with image and prediction results
       navigation.navigate("Details", { 
         image: image,
+        plantDescription: plantDescription,
         prediction: prediction.topPrediction,
-        allPredictions: prediction.allPredictions
+        allPredictions: prediction.allPredictions,
+        primaryModelAccuracy: prediction.primaryModelAccuracy,
+        inceptionV3Prediction: prediction.inceptionV3TopPrediction,
+        inceptionV3AllPredictions: prediction.inceptionV3AllPredictions,
+        inceptionV3ModelAccuracy: prediction.inceptionV3ModelAccuracy,
+        vgg19Prediction: prediction.vgg19TopPrediction,
+        vgg19AllPredictions: prediction.vgg19AllPredictions,
+        vgg19ModelAccuracy: prediction.vgg19ModelAccuracy,
+        combinedAccuracy: prediction.combinedAccuracy,
+        bertConfidence: prediction.bertConfidence
       });
     } catch (error) {
       console.error('Prediction error:', error);
@@ -95,6 +106,22 @@ export default function Upload({ navigation }) {
           <View style={styles.previewContainer}>
             <Text style={styles.subtitle}>Your Image:</Text>
             <Image source={{ uri: image }} style={styles.image} />
+            
+            <View style={styles.textInputContainer}>
+              <Text style={styles.textInputLabel}>Plant Description (optional):</Text>
+              <TextInput
+                style={styles.textInput}
+                placeholder="Describe the plant (e.g., yellow flowers, tall stems, fuzzy leaves...)"
+                placeholderTextColor="#999"
+                value={plantDescription}
+                onChangeText={setPlantDescription}
+                multiline
+                numberOfLines={3}
+              />
+              <Text style={styles.textInputHint}>
+                Providing details can improve accuracy
+              </Text>
+            </View>
           </View>
         )}
 
@@ -167,12 +194,39 @@ const styles = StyleSheet.create({
   previewContainer: {
     alignItems: "center",
     marginVertical: 10,
+    width: '100%',
   },
   image: {
     width: 250,
     height: 250,
     resizeMode: "contain",
     borderRadius: 8,
+  },
+  textInputContainer: {
+    width: '90%',
+    marginTop: 15,
+  },
+  textInputLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#333',
+    marginBottom: 8,
+  },
+  textInput: {
+    borderWidth: 1,
+    borderColor: '#ccc',
+    borderRadius: 8,
+    padding: 12,
+    fontSize: 14,
+    backgroundColor: '#fff',
+    minHeight: 80,
+    textAlignVertical: 'top',
+  },
+  textInputHint: {
+    fontSize: 12,
+    color: '#666',
+    marginTop: 6,
+    fontStyle: 'italic',
   },
   loadingContainer: {
     marginTop: 20,

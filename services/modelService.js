@@ -6,7 +6,13 @@ import * as jpeg from 'jpeg-js';
 class ModelService {
   constructor() {
     this.model = null;
+    this.vgg19Model = null;
+    this.inceptionV3Model = null;
+    this.bertModel = null;
     this.isModelLoaded = false;
+    this.isVgg19Loaded = false;
+    this.isInceptionV3Loaded = false;
+    this.isBertLoaded = false;
     this.isTfjsReady = false;
     
     // 18 Solidago species - MUST match the order from your training data
@@ -31,6 +37,28 @@ class ModelService {
       'Solidago ulmifolia',
       'Solidago virgaurea',
     ];
+    
+    // Keywords for text-based species identification
+    this.speciesKeywords = {
+      'Solidago altissima': ['tall', 'tallest', 'late', 'august', 'september', 'smooth stem'],
+      'Solidago canadensis': ['common', 'widespread', 'hairy stem', 'rough', 'field'],
+      'Solidago gigantea': ['giant', 'large', 'smooth', 'waxy', 'blue-green'],
+      'Solidago rugosa': ['rough', 'wrinkled', 'leaves', 'woodland', 'shade'],
+      'Solidago nemoralis': ['gray', 'grayish', 'small', 'short', 'dry'],
+      'Solidago juncea': ['early', 'june', 'july', 'smooth leaves', 'basal'],
+      'Solidago rigida': ['stiff', 'rigid', 'hard', 'thick leaves'],
+      'Solidago speciosa': ['showy', 'spectacular', 'large flowers'],
+      'Solidago hispida': ['hairy', 'hispid', 'bristly'],
+      'Solidago missouriensis': ['prairie', 'plains', 'missouri'],
+      'Solidago mollis': ['soft', 'velvety', 'fuzzy'],
+      'Solidago petiolaris': ['downy', 'petiolate'],
+      'Solidago pinetorum': ['pine', 'forest', 'mountain'],
+      'Solidago radula': ['rough leaf'],
+      'Solidago rigidiuscula': ['slightly stiff'],
+      'Solidago delicatula': ['delicate', 'small'],
+      'Solidago ulmifolia': ['elm-leaved', 'broad leaves'],
+      'Solidago virgaurea': ['european', 'alpine']
+    };
   }
 
   async initializeTensorFlow() {
@@ -48,24 +76,71 @@ class ModelService {
   }
 
   async loadModel() {
-    if (this.isModelLoaded) return;
+    if (this.isModelLoaded && this.isVgg19Loaded && this.isInceptionV3Loaded && this.isBertLoaded) return;
     
     await this.initializeTensorFlow();
     
     try {
-      // For now, we'll use a simple mock since loading SavedModel in React Native is complex
-      // In production, you should either:
-      // 1. Convert the model to TensorFlow Lite format (.tflite)
-      // 2. Host the model on a server and use tf.loadGraphModel with HTTP URL
-      // 3. Convert to TensorFlow.js format with proper web tensors
+      // Load primary model
+      if (!this.isModelLoaded) {
+        console.log('Primary model loading skipped - using mock predictions');
+        this.isModelLoaded = true;
+      }
       
-      console.log('Model loading skipped - using direct prediction');
-      this.isModelLoaded = true;
+      // Load VGG19 model from .h5 file
+      if (!this.isVgg19Loaded) {
+        try {
+          console.log('Loading VGG19 model from vgg19_weight.h5...');
+          // Note: Loading .h5 files directly in React Native requires conversion
+          // For now, we'll use mock predictions for VGG19 as well
+          // In production, convert the .h5 file to TensorFlow.js format using:
+          // tensorflowjs_converter --input_format=keras vgg19_weight.h5 ./vgg19_tfjs
+          // Then load with: tf.loadLayersModel('./vgg19_tfjs/model.json')
+          
+          console.log('VGG19 model loading skipped - using mock predictions');
+          this.isVgg19Loaded = true;
+        } catch (vgg19Error) {
+          console.error('Error loading VGG19 model:', vgg19Error);
+          console.log('Continuing without VGG19 model');
+        }
+      }
       
-      // TODO: Load actual TensorFlow.js model when available
-      // Ensure trained model outputs 18 classes for Solidago species
+      // Load InceptionV3 model from .h5 file
+      if (!this.isInceptionV3Loaded) {
+        try {
+          console.log('Loading InceptionV3 model from inceptionv3.h5...');
+          // Note: Loading .h5 files directly in React Native requires conversion
+          // For now, we'll use mock predictions for InceptionV3 as well
+          // In production, convert the .h5 file to TensorFlow.js format using:
+          // tensorflowjs_converter --input_format=keras inceptionv3.h5 ./inceptionv3_tfjs
+          // Then load with: tf.loadLayersModel('./inceptionv3_tfjs/model.json')
+          
+          console.log('InceptionV3 model loading skipped - using mock predictions');
+          this.isInceptionV3Loaded = true;
+        } catch (inceptionError) {
+          console.error('Error loading InceptionV3 model:', inceptionError);
+          console.log('Continuing without InceptionV3 model');
+        }
+      }
+      
+      // Initialize BERT text processing
+      if (!this.isBertLoaded) {
+        try {
+          console.log('Initializing BERT text processing...');
+          // BERT processing will use keyword matching for now
+          // In production, load actual BERT model for text embeddings
+          this.isBertLoaded = true;
+          console.log('BERT text processing initialized');
+        } catch (bertError) {
+          console.error('Error initializing BERT:', bertError);
+          console.log('Continuing without BERT text processing');
+        }
+      }
+      
+      // TODO: Load actual TensorFlow.js models when available
+      // Ensure trained models output 18 classes for Solidago species
     } catch (error) {
-      console.error('Error loading model:', error);
+      console.error('Error loading models:', error);
       throw new Error('Failed to initialize model service');
     }
   }
@@ -142,7 +217,59 @@ class ModelService {
     }
   }
 
-  async predictSpecies(imageUri) {
+  processTextDescription(description) {
+    if (!description || description.trim() === '') {
+      return null;
+    }
+
+    const lowerDescription = description.toLowerCase();
+    const scores = {};
+
+    // Score each species based on keyword matches
+    this.speciesLabels.forEach((species) => {
+      const keywords = this.speciesKeywords[species] || [];
+      let matchScore = 0;
+
+      keywords.forEach((keyword) => {
+        if (lowerDescription.includes(keyword.toLowerCase())) {
+          matchScore += 1;
+        }
+      });
+
+      // Normalize score
+      const normalizedScore = keywords.length > 0 ? matchScore / keywords.length : 0;
+      scores[species] = normalizedScore;
+    });
+
+    return scores;
+  }
+
+  combineModelPredictions(imagePredictions, textScores, textWeight = 0.3) {
+    // Combine image-based predictions with text-based scores
+    const combinedPredictions = this.speciesLabels.map((species, index) => {
+      const imageConf = imagePredictions[index].confidence;
+      const textConf = textScores && textScores[species] ? textScores[species] : 0;
+      
+      // Weighted combination: 70% image, 30% text (if text provided)
+      const combinedConf = textScores ? 
+        (imageConf * (1 - textWeight) + textConf * textWeight) :
+        imageConf;
+
+      return {
+        class: index,
+        species: species,
+        confidence: combinedConf,
+        confidencePercentage: (combinedConf * 100).toFixed(2),
+        imageConfidence: imageConf,
+        textConfidence: textConf
+      };
+    });
+
+    combinedPredictions.sort((a, b) => b.confidence - a.confidence);
+    return combinedPredictions;
+  }
+
+  async predictSpecies(imageUri, textDescription = '') {
     if (!this.isModelLoaded) {
       await this.loadModel();
     }
@@ -151,12 +278,11 @@ class ModelService {
       console.log('Preprocessing image...');
       const preprocessedImage = await this.preprocessImage(imageUri);
       
-      console.log('Creating mock prediction...');
-      // TODO: Replace with actual model prediction once model is properly loaded
-      // For now, return mock predictions to test the UI
+      console.log('Creating predictions from all three models...');
+      // TODO: Replace with actual model predictions once models are properly loaded
       
-      const mockPredictions = this.speciesLabels.map((species, index) => {
-        // Generate random confidence scores
+      // Primary Model Predictions
+      const primaryPredictions = this.speciesLabels.map((species, index) => {
         const randomConfidence = Math.random();
         return {
           class: index,
@@ -165,22 +291,127 @@ class ModelService {
           confidencePercentage: (randomConfidence * 100).toFixed(2)
         };
       });
+      primaryPredictions.sort((a, b) => b.confidence - a.confidence);
       
-      // Sort by confidence (highest first)
-      mockPredictions.sort((a, b) => b.confidence - a.confidence);
+      // InceptionV3 Model Predictions
+      const inceptionV3Predictions = this.speciesLabels.map((species, index) => {
+        const randomConfidence = Math.random();
+        return {
+          class: index,
+          species: species,
+          confidence: randomConfidence,
+          confidencePercentage: (randomConfidence * 100).toFixed(2)
+        };
+      });
+      inceptionV3Predictions.sort((a, b) => b.confidence - a.confidence);
       
-      // Get top prediction
-      const topPrediction = mockPredictions[0];
+      // VGG19 Model Predictions
+      const vgg19Predictions = this.speciesLabels.map((species, index) => {
+        const randomConfidence = Math.random();
+        return {
+          class: index,
+          species: species,
+          confidence: randomConfidence,
+          confidencePercentage: (randomConfidence * 100).toFixed(2)
+        };
+      });
+      vgg19Predictions.sort((a, b) => b.confidence - a.confidence);
       
-      console.log('Mock prediction complete:', topPrediction);
+      // Get top predictions from all three models
+      const primaryTopPrediction = primaryPredictions[0];
+      const inceptionV3TopPrediction = inceptionV3Predictions[0];
+      const vgg19TopPrediction = vgg19Predictions[0];
+      
+      // Process text description with BERT
+      console.log('Processing text description...');
+      const textScores = this.processTextDescription(textDescription);
+      const hasTextInput = textScores !== null;
+      
+      // Combine predictions from all models
+      // Average the three image models first
+      const avgImagePredictions = this.speciesLabels.map((species, index) => {
+        const avgConf = (
+          primaryPredictions[index].confidence +
+          inceptionV3Predictions[index].confidence +
+          vgg19Predictions[index].confidence
+        ) / 3;
+        
+        return {
+          class: index,
+          species: species,
+          confidence: avgConf,
+          confidencePercentage: (avgConf * 100).toFixed(2)
+        };
+      });
+      
+      // Combine image average with text scores
+      const combinedPredictions = this.combineModelPredictions(avgImagePredictions, textScores, 0.3);
+      const combinedTopPrediction = combinedPredictions[0];
+      
+      // Calculate overall combined accuracy (average of top predictions from all models)
+      let combinedAccuracy;
+      if (hasTextInput) {
+        // Include BERT text confidence in combined accuracy
+        const bertTextConfidence = textScores[combinedTopPrediction.species] || 0;
+        combinedAccuracy = (
+          (parseFloat(primaryTopPrediction.confidencePercentage) +
+          parseFloat(inceptionV3TopPrediction.confidencePercentage) +
+          parseFloat(vgg19TopPrediction.confidencePercentage)) / 3 * 0.7 +
+          bertTextConfidence * 100 * 0.3
+        ).toFixed(2);
+      } else {
+        // Average of three image models only
+        combinedAccuracy = (
+          (parseFloat(primaryTopPrediction.confidencePercentage) +
+          parseFloat(inceptionV3TopPrediction.confidencePercentage) +
+          parseFloat(vgg19TopPrediction.confidencePercentage)) / 3
+        ).toFixed(2);
+      }
+      
+      console.log('Predictions complete');
+      console.log('Primary Model:', primaryTopPrediction);
+      console.log('InceptionV3 Model:', inceptionV3TopPrediction);
+      console.log('VGG19 Model:', vgg19TopPrediction);
+      console.log('Combined Accuracy:', combinedAccuracy);
+      if (hasTextInput) {
+        console.log('Text processing active - BERT confidence included');
+      }
+      console.log('InceptionV3 Model:', inceptionV3TopPrediction);
+      console.log('VGG19 Model:', vgg19TopPrediction);
       
       // Clean up tensors to prevent memory leaks
       preprocessedImage.dispose();
       
       return {
-        topPrediction,
-        allPredictions: mockPredictions.slice(0, 3), // Return top 3 predictions
-        note: 'Using mock predictions - model not loaded yet'
+        // Combined results
+        combinedAccuracy: combinedAccuracy,
+        combinedTopPrediction: combinedTopPrediction,
+        bertConfidence: hasTextInput ? (textScores[combinedTopPrediction.species] * 100).toFixed(2) : null,
+        
+        // Primary model results
+        topPrediction: primaryTopPrediction,
+        allPredictions: primaryPredictions.slice(0, 3),
+        primaryModelAccuracy: primaryTopPrediction.confidencePercentage,
+        
+        // InceptionV3 model results
+        inceptionV3TopPrediction: inceptionV3TopPrediction,
+        inceptionV3AllPredictions: inceptionV3Predictions.slice(0, 3),
+        inceptionV3ModelAccuracy: inceptionV3TopPrediction.confidencePercentage,
+        
+        // VGG19 model results
+        vgg19TopPrediction: vgg19TopPrediction,
+        vgg19AllPredictions: vgg19Predictions.slice(0, 3),
+        vgg19ModelAccuracy: vgg19TopPrediction.confidencePercentage,
+        
+        // Metadata
+        modelsUsed: {
+          primary: this.isModelLoaded,
+          inceptionV3: this.isInceptionV3Loaded,
+          vgg19: this.isVgg19Loaded,
+          bert: this.isBertLoaded && hasTextInput
+        },
+        hasTextDescription: hasTextInput,
+        note: 'Using mock predictions - models not loaded yet'
       };
     } catch (error) {
       console.error('Error making prediction:', error);
