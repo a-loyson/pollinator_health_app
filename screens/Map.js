@@ -1,10 +1,8 @@
 import React, { useState, useEffect } from "react";
-import { Text, View, StyleSheet } from "react-native";
+import { Text, View, StyleSheet, Pressable, Image } from "react-native";
 import MapView, { PROVIDER_GOOGLE, Marker } from 'react-native-maps';
-import { Pressable } from "react-native-gesture-handler";
 import * as Location from "expo-location";
 import { getSightings } from "../services/SightingService"
-import AsyncStorage from "@react-native-async-storage/async-storage";
 
 const initial_region = {
   latitude: 40.037945540082966,
@@ -19,30 +17,43 @@ export default function Map({ route, navigation }) {
   const [savedSightings, setSavedSightings] = useState([]);
 
   useEffect(() => {
-    (async () => {
-      const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status === "granted") {
-        try {
-          const loc = await Location.getCurrentPositionAsync({});
-          setRegion({
-            ...region,
-            latitude: loc.coords.latitude,
-            longitude: loc.coords.longitude,
-          });
-        } catch (err) {
-          console.log("Location error:", err);
-        }
-      }
-
+    const unsubscribe = navigation.addListener("focus", async () => {
       const data = await getSightings();
 
-  const cleaned = (data || []).map((s) => ({
-    species: s.prediction?.species,
-    latitude: s.location?.latitude,
-    longitude: s.location?.longitude,
-  }));
+      const cleaned = (data || []).map((s, index) => ({
+        id: index,
+        image: s.image,
+        prediction: s.prediction,
+        species: s.prediction?.species,
+        date: s.date,
+        description: s.description,
+        location: s.location,
+        latitude: s.location?.latitude,
+        longitude: s.location?.longitude,
+      }));
 
-  setSavedSightings(cleaned);
+      setSavedSightings(cleaned);
+    });
+
+    return unsubscribe;
+  }, [navigation]);
+
+
+  useEffect(() => {
+    (async () => {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== "granted") return;
+
+      try {
+        const loc = await Location.getCurrentPositionAsync({});
+        setRegion((prev) => ({
+          ...prev,
+          latitude: loc.coords.latitude,
+          longitude: loc.coords.longitude,
+        }));
+      } catch (err) {
+        console.log("Location error:", err);
+      }
     })();
   }, []);
 
@@ -62,19 +73,34 @@ export default function Map({ route, navigation }) {
             longitude: item.longitude,
           }}
           title={item.species}
-          onPress={() => setSelectedPin({ name: item.species, coords: item })}
+          onPress={() => setSelectedPin(item)}
         />
       ))}
       </MapView>
       {selectedPin && (
         <View style={styles.bottomPanel}>
-          <Text style={styles.panelTitle}>{selectedPin.name}</Text>
-          <Pressable
-            style={styles.detailsButton}
-            onPress={() => alert(`More details about ${selectedPin.name}`)}
-          >
-            <Text style={{ color: "#EAE2DC" }}>Details</Text>
-          </Pressable>
+          <View style={styles.row}>
+            <Image
+              source={{ uri: selectedPin.image }}
+              style={styles.thumbnail}
+            />
+            <View style={styles.infoContainer}>
+              <Text style={styles.speciesText}>{selectedPin.species}</Text>
+              <Text style={styles.dateText}>
+                {new Date(selectedPin.date).toLocaleDateString()}
+              </Text>
+            <Pressable
+              style={styles.detailsButton}
+              onPress={() => {
+                console.log("navigating to details");
+                console.log(navigation.getParent())
+                navigation.navigate("SightingDetails", { sighting: selectedPin });
+              }}
+            >
+              <Text style={styles.detailsButtonText}>Details</Text>
+            </Pressable>
+            </View>
+          </View>
         </View>
       )}
     </View>
@@ -96,17 +122,36 @@ const styles = StyleSheet.create({
     right: 20,
     backgroundColor: "#EAE2DC",
     padding: 15,
-    borderRadius: 10,
+    borderRadius: 20,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.3,
     shadowRadius: 4,
     elevation: 5,
   },
-  panelTitle: {
+  row: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  infoContainer: {
+    marginLeft: 12,
+    flex: 1,
+  },
+  thumbnail: {
+  width: 80,
+  height: 80,
+  borderRadius: 10,
+  backgroundColor: "#d0d0d0",
+  },
+  speciesText: {
     fontSize: 18,
     fontWeight: "bold",
-    marginBottom: 5,
+    color: "#4c5345",
+  },
+  dateText: {
+    marginTop: 2,
+    fontSize: 14,
+    color: "#333",
   },
   detailsButton: {
     marginTop: 10,
@@ -115,5 +160,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     borderRadius: 5,
     alignItems: "center",
+  },
+  detailsButtonText: {
+  color: "#EAE2DC",
+  fontWeight: "500",
   },
 });

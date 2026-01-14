@@ -70,7 +70,7 @@ export default function DetailsScreen({ route, navigation }) {
         <View style={styles.buttonContainer}>
           <Button 
             title="Analyze Another Plant" 
-            onPress={() => navigation.navigate("Home")} 
+            onPress={() => navigation.navigate("Tabs")} 
             color="#7E8973"
           />
         </View>

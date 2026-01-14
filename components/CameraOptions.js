@@ -11,9 +11,9 @@ export default function CameraOptions() {
 
   useEffect(() => {
     if (!showOptions && nextImage) {
-      navigation.navigate("Home", {
-        screen: "SubmissionDetails",
-        params: { image: nextImage },
+      navigation.navigate("SubmissionDetails", { 
+        image: nextImage.uri, 
+        metadata: nextImage.metadata 
       });
       setNextImage(null);
     }
@@ -37,11 +37,18 @@ export default function CameraOptions() {
       mediaTypes: "images",
       allowsEditing: true,
       quality: 1,
+      exif: false,
     });
-
+    
     if (!result.canceled) {
-      setNextImage(result.assets[0].uri);
-      setShowOptions(false); 
+      const asset = result.assets[0];
+
+      setNextImage({
+        uri: asset.uri,
+        metadata: null,  
+      });
+
+      setShowOptions(false);
     }
   };
 
@@ -54,15 +61,63 @@ export default function CameraOptions() {
 
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: "images",
-      allowsEditing: true,
+      allowsEditing: false,
       quality: 1,
+      exif: true,
     });
 
-    if (!result.canceled) {
-      setNextImage(result.assets[0].uri);
-      setShowOptions(false);
+    console.log("raw exif:" , result.assets[0].exif);
+
+    if (result.canceled) return;
+
+    const asset = result.assets[0];
+    const exif = asset.exif || {};
+
+    // ---- GPS CONVERSION ----
+    function parseGps(value, ref) {
+      if (!value) return null;
+
+      if (typeof value === "number") {
+        return ref === "S" || ref === "W" ? -value : value;
+      }
+
+      const [d, m, s] = value;
+      let decimal = d + m / 60 + s / 3600;
+      if (ref === "S" || ref === "W") decimal = -decimal;
+      return decimal;
     }
+
+    // ---- DATE CONVERSION ----
+    function parseExifDate(dateString) {
+      if (!dateString) return null;
+
+      const parts = dateString.split(/[: ]/);
+      if (parts.length < 6) return null;
+      const [year, month, day, hour, minute, sec] = parts.map(Number);
+
+      return new Date(year, month - 1, day, hour, minute, sec).toISOString(); // <-- FIX
+    }
+
+    const gpsLat = parseGps(exif.GPSLatitude, exif.GPSLatitudeRef);
+    const gpsLon = parseGps(exif.GPSLongitude, exif.GPSLongitudeRef);
+
+    const metadata = {
+      location:
+        gpsLat && gpsLon ? { latitude: gpsLat, longitude: gpsLon } : null,
+      date: parseExifDate(exif.DateTimeOriginal),
+    };
+
+    console.log("EXIF extracted:", metadata);
+
+    // ---- IMPORTANT: only pass serializable params ----
+    setNextImage({
+      uri: asset.uri,
+      metadata,
+    });
+
+    setShowOptions(false);
   };
+
 
   return (
     <>

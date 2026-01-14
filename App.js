@@ -2,8 +2,6 @@ import "react-native-gesture-handler";
 import React, { useEffect, useState } from "react";
 import { NavigationContainer } from "@react-navigation/native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
-import Stack from "./navigation/Stack";
-import Tabs from "./navigation/Tabs";
 import { View, Text, ActivityIndicator, StyleSheet } from "react-native";
 import * as tf from '@tensorflow/tfjs';
 import AppStack from "./navigation/Stack";
@@ -44,7 +42,7 @@ export default function App() {
   return (
     <GestureHandlerRootView>
       <NavigationContainer>
-        <Tabs />
+        <AppStack />
       </NavigationContainer>
     </GestureHandlerRootView>
   );

@@ -8,14 +8,31 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 
 
 export default function SubmissionDetails({ route, navigation }) {
-  const { image } = route.params;
+  const { image, metadata } = route.params;
   const [description, setDescription] = useState("");
-  const [location, setLocation] = useState("");
-  const [date, setDate] = useState(new Date());
+  const [location, setLocation] = useState(metadata?.location || null);
+  const [date, setDate] = useState(metadata?.date ? new Date(metadata.date) : new Date());
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const isFormValid = date && location;
+
+
+  function parseLocationString(text) {
+    try {
+      const [lat, lon] = text.split(",").map(Number);
+      if (isNaN(lat) || isNaN(lon)) return null;
+      return { latitude: lat, longitude: lon };
+    } catch {
+      return null;
+    }
+  }
 
   useEffect(() => {
+    if (metadata?.location) {
+      console.log("Using EXIF GPS:", metadata.location);
+      return; // skip GPS lookup
+    }
+
     (async () => {
       let { status } = await Location.requestForegroundPermissionsAsync();
       if (status !== "granted") {
@@ -27,7 +44,7 @@ export default function SubmissionDetails({ route, navigation }) {
         const loc = await Location.getCurrentPositionAsync({});
         setLocation({
           latitude: loc.coords.latitude,
-          longitude: loc.coords.longitude
+          longitude: loc.coords.longitude,
         });
       } catch (e) {
         console.log("Error fetching location:", e);
@@ -48,7 +65,10 @@ export default function SubmissionDetails({ route, navigation }) {
 };
 
   const handleSubmit = async () => {
-    if (!image) return;
+    if (!location) {
+      Alert.alert("Invalid Location", "Please enter a valid coordinate.");
+    return;
+    }
 
     setIsAnalyzing(true);
 
@@ -63,17 +83,11 @@ export default function SubmissionDetails({ route, navigation }) {
         prediction: prediction.topPrediction,
       };
 
-      await saveSighting({
-        image,
-        description,
-        location,    
-        date: date.toISOString(),
-        prediction: prediction.topPrediction,
-      });
+      await saveSighting(newSighting);
       console.log("Sighting saved:", newSighting);
 
       const all = await AsyncStorage.getItem("sightings");
-      console.log("📦 All saved sightings:", JSON.parse(all));
+      console.log("All saved sightings:", JSON.parse(all));
 
       navigation.push("Details", {
         image,
@@ -128,9 +142,13 @@ export default function SubmissionDetails({ route, navigation }) {
         value={description}
         onChangeText={setDescription}
       />
-      <Pressable style={styles.submitButton} 
+      <Pressable 
+        style={[
+          styles.submitButton,
+          !isFormValid && { backgroundColor: "#aaa" },  // visually disabled
+        ]} 
         onPress={handleSubmit}             
-        disabled={!image || isAnalyzing}>
+        disabled={!image || isAnalyzing || !isFormValid}>
         <Text style={{ color: "#ffffffff" }}>Submit</Text>
       </Pressable>
       <Pressable style={styles.cancelButton} 
