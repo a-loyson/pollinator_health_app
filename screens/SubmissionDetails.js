@@ -10,6 +10,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 export default function SubmissionDetails({ route, navigation }) {
   const { image, metadata } = route.params;
   const [description, setDescription] = useState("");
+  const [locationText, setLocationText] = useState("");
   const [location, setLocation] = useState(metadata?.location || null);
   const [date, setDate] = useState(metadata?.date ? new Date(metadata.date) : new Date());
   const [showDatePicker, setShowDatePicker] = useState(false);
@@ -46,6 +47,7 @@ export default function SubmissionDetails({ route, navigation }) {
           latitude: loc.coords.latitude,
           longitude: loc.coords.longitude,
         });
+        setLocationText(`${loc.coords.latitude.toFixed(6)}, ${loc.coords.longitude.toFixed(6)}`);
       } catch (e) {
         console.log("Error fetching location:", e);
       }
@@ -74,13 +76,17 @@ export default function SubmissionDetails({ route, navigation }) {
 
     try {
       const prediction = await ModelService.predictSpecies(image);
+      console.log("Prediction result:", prediction);
 
       const newSighting = {
         image,
         description,
         location,
         date: date.toISOString(),
-        prediction: prediction.topPrediction,
+        prediction: {
+          top: prediction.topPrediction,
+          all: prediction.allPredictions
+        }
       };
 
       await saveSighting(newSighting);
@@ -91,8 +97,8 @@ export default function SubmissionDetails({ route, navigation }) {
 
       navigation.push("Details", {
         image,
-        prediction: prediction.topPrediction,
-        allPredictions: prediction.allPredictions,
+        prediction: newSighting.prediction.top,
+        allPredictions: newSighting.prediction.all,
         description,
         location,
       });
@@ -129,12 +135,17 @@ export default function SubmissionDetails({ route, navigation }) {
       <TextInput
         style={styles.input}
         placeholder="Enter coordinates"
-        value={
-          location
-            ? `${location.latitude.toFixed(6)}, ${location.longitude.toFixed(6)}`
-            : ""
-        }
-        onChangeText={(text) => setLocation(parseLocationString(text))}
+        // value={
+        //   location
+        //     ? `${location.latitude.toFixed(6)}, ${location.longitude.toFixed(6)}`
+        //     : ""
+        // }
+        value={locationText}
+        onChangeText={(text) => {
+          setLocationText(text);
+          const loc = parseLocationString(text);
+          setLocation(loc);
+        }}
       />
     <Text style={styles.prompt}>Notes (optional)</Text>
       <TextInput

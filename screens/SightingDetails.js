@@ -2,6 +2,7 @@ import { Button, Image, Text, View, StyleSheet, ScrollView } from "react-native"
 
 export default function SightingDetails({ route, navigation }) {
   const { sighting } = route.params;
+  console.log("SightingDetails received sighting:", sighting);
   
   // Extract data from sighting object
   const { 
@@ -15,12 +16,9 @@ export default function SightingDetails({ route, navigation }) {
     longitude
   } = sighting;
 
-  // Get top prediction - handle both formats
-  const topPrediction = prediction || { species, confidence: 0, confidencePercentage: "0" };
+  const topPrediction = prediction?.top;
+  const allPredictions = prediction?.all || [];
   
-  // For alternative predictions, we need them stored in the sighting
-  // Currently they're not being saved - see note below
-
   return (
     <ScrollView 
       contentContainerStyle={{ paddingBottom: 100 }}
@@ -55,10 +53,10 @@ export default function SightingDetails({ route, navigation }) {
             </View>
 
             {/* Display alternative predictions if they exist */}
-            {prediction?.allPredictions && prediction.allPredictions.length > 1 && (
+            {allPredictions && allPredictions.length > 1 && (
               <View style={styles.alternativeCard}>
                 <Text style={styles.sectionTitle}>Alternative Predictions</Text>
-                {prediction.allPredictions.slice(1).map((pred, index) => (
+                {allPredictions.slice(1).map((pred, index) => (
                   <View key={index} style={styles.alternativeItem}>
                     <Text style={styles.alternativeSpecies}>
                       {index + 2}. {pred.species}

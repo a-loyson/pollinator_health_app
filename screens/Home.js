@@ -91,56 +91,9 @@ export default function Upload({ navigation }) {
       <View style={[styles.container, image && styles.containerWithImage]}>
         <Text style={styles.title}>Solidago Species Identifier</Text>
         <Text style={styles.description}>
-          Take or select a photo of a Solidago (goldenrod) plant to identify its species
+          Take or select a photo of a Solidago (goldenrod) plant to identify its species.
         </Text>
-
-        <View style={styles.buttonGroup}>
-          <Button title="Take a Photo" onPress={takePhoto} color="#007AFF" />
-          <Text style={styles.mobileNote}>Mobile only</Text>
-        </View>
-        
-        <View style={styles.buttonGroup}>
-          <Button title="Pick Image from Gallery" onPress={pickImage} color="#007AFF" />
-        </View>
-
-        {image && (
-          <View style={styles.previewContainer}>
-            <Text style={styles.subtitle}>Your Image:</Text>
-            <Image source={{ uri: image }} style={styles.image} />
-          </View>
-        )}
-
-        {image && (
-          <View style={styles.buttonGroup}>
-            <Button title="Clear Image" color="red" onPress={() => setImage(null)} />
-          </View>
-        )}
-
-        <View style={styles.buttonGroup}>
-          <Button 
-            title={isAnalyzing ? "Analyzing..." : "Identify Species"} 
-            onPress={handleRunModel}
-            disabled={!image || isAnalyzing}
-            color="#28A745"
-          />
-        </View>
-
-        <View style={styles.buttonGroup}>
-        <Button 
-          title="Delete All Sightings" 
-          onPress={resetSightings} 
-          color="orange"
-        />
-      </View>
-
-
-        {isAnalyzing && (
-          <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color="#007AFF" />
-            <Text style={styles.loadingText}>Analyzing plant image...</Text>
-          </View>
-        )}
-      </View>
+       </View>
     </ScrollView>
   );
 }

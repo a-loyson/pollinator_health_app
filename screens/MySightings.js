@@ -20,7 +20,7 @@ export default function MySightings({ navigation }) {
         id: index,
         image: s.image,
         prediction: s.prediction,
-        species: s.prediction?.species,
+        species: s.prediction?.top.species,
         date: s.date,
         description: s.description,
         location: s.location,

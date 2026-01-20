@@ -46,13 +46,9 @@ export default function AppStack() {
       <Stack.Screen 
         name="MySightings" 
         component={MySightings}
-        options={({ navigation }) => ({
-          headerRight: () => (
-            <Pressable style={styles.profileButton} onPress={() => navigation.navigate("MySightings")}>
-              <Ionicons name="person-outline" size={20} color="#EAE2DC" />
-            </Pressable>
-          ),
-        })}
+        options={{
+          title: "My Sightings",
+        }}
       />
     </Stack.Navigator>
   );
