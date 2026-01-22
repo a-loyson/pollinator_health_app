@@ -34,17 +34,34 @@ export default function DetailsScreen({ route, navigation }) {
 
         {prediction ? (
           <>
-            {/* Combined Species and Accuracy Card */}
-            <View style={styles.combinedAccuracyCard}>
-              <Text style={styles.combinedAccuracyTitle}>Predicted Species</Text>
-              <Text style={styles.speciesName}>{predictedSpecies || 'Unknown'}</Text>
-              <Text style={styles.combinedAccuracyValue}>{combinedAccuracy}%</Text>
-              <Text style={styles.combinedAccuracySubtext}>
-                BERT + VGG19 + InceptionV3 + ConvNeXt
+            {/* Top 3 InceptionV3 Predictions */}
+            <View style={styles.modelScoresCard}>
+              <Text style={styles.modelScoresTitle}>Top Species Predictions</Text>
+              <Text style={styles.modelScoresSubtitle}>
+                InceptionV3 Model Results
               </Text>
-              <Text style={styles.bestModelText}>
-                Best prediction from {bestModel || 'combined models'}
-              </Text>
+              
+              {inceptionV3AllPredictions && inceptionV3AllPredictions.slice(0, 3).map((pred, index) => (
+                <View key={index} style={styles.modelScoreRow}>
+                  <View style={styles.modelScoreItem}>
+                    <Text style={styles.modelScoreName}>
+                      {index + 1}. {pred.species}
+                    </Text>
+                    <Text style={styles.modelScoreValue}>
+                      {pred.confidencePercentage}%
+                    </Text>
+                    <View style={styles.modelScoreBar}>
+                      <View 
+                        style={[
+                          styles.modelScoreBarFill, 
+                          styles.inceptionBar,
+                          { width: `${pred.confidencePercentage}%` }
+                        ]} 
+                      />
+                    </View>
+                  </View>
+                </View>
+              ))}
             </View>
 
             {/* Model Comparison Card - HIDDEN */}
@@ -334,6 +351,73 @@ const styles = StyleSheet.create({
     color: '#888',
     textAlign: 'center',
     fontStyle: 'italic',
+  },
+  modelScoresCard: {
+    width: '100%',
+    backgroundColor: 'white',
+    padding: 20,
+    borderRadius: 15,
+    marginBottom: 15,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 3.84,
+    elevation: 3,
+  },
+  modelScoresTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#333',
+    marginBottom: 5,
+    textAlign: 'center',
+  },
+  modelScoresSubtitle: {
+    fontSize: 12,
+    color: '#888',
+    textAlign: 'center',
+    marginBottom: 20,
+    fontStyle: 'italic',
+  },
+  modelScoreRow: {
+    marginBottom: 15,
+  },
+  modelScoreItem: {
+    width: '100%',
+  },
+  modelScoreName: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#555',
+    marginBottom: 5,
+  },
+  modelScoreValue: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#333',
+    marginBottom: 8,
+  },
+  modelScoreBar: {
+    width: '100%',
+    height: 8,
+    backgroundColor: '#e0e0e0',
+    borderRadius: 4,
+    overflow: 'hidden',
+  },
+  modelScoreBarFill: {
+    height: '100%',
+    borderRadius: 4,
+  },
+  vgg19Bar: {
+    backgroundColor: '#007AFF',
+  },
+  inceptionBar: {
+    backgroundColor: '#FF9500',
+  },
+  convnextBar: {
+    backgroundColor: '#28A745',
+  },
+  bertBar: {
+    backgroundColor: '#9C27B0',
   },
   bertInfoContainer: {
     backgroundColor: 'rgba(255, 255, 255, 0.2)',

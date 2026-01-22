@@ -81,54 +81,56 @@ class ModelService {
     await this.initializeTensorFlow();
     
     try {
-      // Load primary model
+      // Load ConvNeXt primary model
       if (!this.isModelLoaded) {
-        console.log('Primary model loading skipped - using mock predictions');
-        this.isModelLoaded = true;
+        try {
+          console.log('Loading ConvNeXt model...');
+          // Load from bundled assets - for web, use public URL
+          const modelUrl = '/models/convnext_tfjs/model.json';
+          this.model = await tf.loadLayersModel(modelUrl);
+          this.isModelLoaded = true;
+          console.log('ConvNeXt model loaded successfully');
+        } catch (convnextError) {
+          console.error('Error loading ConvNeXt model:', convnextError);
+          console.log('Continuing with mock predictions for ConvNeXt');
+          this.isModelLoaded = true; // Mark as loaded to use mock predictions
+        }
       }
       
-      // Load VGG19 model from .h5 file
+      // Load VGG19 model
       if (!this.isVgg19Loaded) {
         try {
-          console.log('Loading VGG19 model from vgg19_weight.h5...');
-          // Note: Loading .h5 files directly in React Native requires conversion
-          // For now, we'll use mock predictions for VGG19 as well
-          // In production, convert the .h5 file to TensorFlow.js format using:
-          // tensorflowjs_converter --input_format=keras vgg19_weight.h5 ./vgg19_tfjs
-          // Then load with: tf.loadLayersModel('./vgg19_tfjs/model.json')
-          
-          console.log('VGG19 model loading skipped - using mock predictions');
+          console.log('Loading VGG19 model...');
+          const modelUrl = '/models/vgg19_tfjs/model.json';
+          this.vgg19Model = await tf.loadLayersModel(modelUrl);
           this.isVgg19Loaded = true;
+          console.log('VGG19 model loaded successfully');
         } catch (vgg19Error) {
           console.error('Error loading VGG19 model:', vgg19Error);
-          console.log('Continuing without VGG19 model');
+          console.log('Continuing with mock predictions for VGG19');
+          this.isVgg19Loaded = true;
         }
       }
       
-      // Load InceptionV3 model from .h5 file
+      // Load InceptionV3 model
       if (!this.isInceptionV3Loaded) {
         try {
-          console.log('Loading InceptionV3 model from inceptionv3.h5...');
-          // Note: Loading .h5 files directly in React Native requires conversion
-          // For now, we'll use mock predictions for InceptionV3 as well
-          // In production, convert the .h5 file to TensorFlow.js format using:
-          // tensorflowjs_converter --input_format=keras inceptionv3.h5 ./inceptionv3_tfjs
-          // Then load with: tf.loadLayersModel('./inceptionv3_tfjs/model.json')
-          
-          console.log('InceptionV3 model loading skipped - using mock predictions');
+          console.log('Loading InceptionV3 model...');
+          const modelUrl = '/models/inceptionv3_tfjs/model.json';
+          this.inceptionV3Model = await tf.loadLayersModel(modelUrl);
           this.isInceptionV3Loaded = true;
+          console.log('InceptionV3 model loaded successfully');
         } catch (inceptionError) {
           console.error('Error loading InceptionV3 model:', inceptionError);
-          console.log('Continuing without InceptionV3 model');
+          console.log('Continuing with mock predictions for InceptionV3');
+          this.isInceptionV3Loaded = true;
         }
       }
       
-      // Initialize BERT text processing
+      // Initialize BERT text processing (keyword-based for now)
       if (!this.isBertLoaded) {
         try {
           console.log('Initializing BERT text processing...');
-          // BERT processing will use keyword matching for now
-          // In production, load actual BERT model for text embeddings
           this.isBertLoaded = true;
           console.log('BERT text processing initialized');
         } catch (bertError) {
@@ -136,9 +138,6 @@ class ModelService {
           console.log('Continuing without BERT text processing');
         }
       }
-      
-      // TODO: Load actual TensorFlow.js models when available
-      // Ensure trained models output 18 classes for Solidago species
     } catch (error) {
       console.error('Error loading models:', error);
       throw new Error('Failed to initialize model service');
@@ -278,43 +277,89 @@ class ModelService {
       console.log('Preprocessing image...');
       const preprocessedImage = await this.preprocessImage(imageUri);
       
-      console.log('Creating predictions from all three models...');
-      // TODO: Replace with actual model predictions once models are properly loaded
+      console.log('Creating predictions from all models...');
       
-      // Primary Model Predictions
-      const primaryPredictions = this.speciesLabels.map((species, index) => {
-        const randomConfidence = Math.random();
-        return {
+      // Primary Model (ConvNeXt) Predictions
+      let primaryPredictions;
+      if (this.model) {
+        console.log('Running ConvNeXt model inference...');
+        const convnextOutput = this.model.predict(preprocessedImage);
+        const convnextData = await convnextOutput.data();
+        primaryPredictions = this.speciesLabels.map((species, index) => ({
           class: index,
           species: species,
-          confidence: randomConfidence,
-          confidencePercentage: (randomConfidence * 100).toFixed(2)
-        };
-      });
+          confidence: convnextData[index],
+          confidencePercentage: (convnextData[index] * 100).toFixed(2)
+        }));
+        convnextOutput.dispose();
+      } else {
+        // Mock predictions if model not loaded
+        primaryPredictions = this.speciesLabels.map((species, index) => {
+          const randomConfidence = Math.random();
+          return {
+            class: index,
+            species: species,
+            confidence: randomConfidence,
+            confidencePercentage: (randomConfidence * 100).toFixed(2)
+          };
+        });
+      }
       primaryPredictions.sort((a, b) => b.confidence - a.confidence);
       
       // InceptionV3 Model Predictions
-      const inceptionV3Predictions = this.speciesLabels.map((species, index) => {
-        const randomConfidence = Math.random();
-        return {
+      let inceptionV3Predictions;
+      if (this.inceptionV3Model) {
+        console.log('Running InceptionV3 model inference...');
+        // InceptionV3 expects 224x224 input (same as our preprocessed image)
+        const inceptionOutput = this.inceptionV3Model.predict(preprocessedImage);
+        const inceptionData = await inceptionOutput.data();
+        inceptionV3Predictions = this.speciesLabels.map((species, index) => ({
           class: index,
           species: species,
-          confidence: randomConfidence,
-          confidencePercentage: (randomConfidence * 100).toFixed(2)
-        };
-      });
+          confidence: inceptionData[index],
+          confidencePercentage: (inceptionData[index] * 100).toFixed(2)
+        }));
+        inceptionOutput.dispose();
+      } else {
+        // Mock predictions if model not loaded
+        inceptionV3Predictions = this.speciesLabels.map((species, index) => {
+          const randomConfidence = Math.random();
+          return {
+            class: index,
+            species: species,
+            confidence: randomConfidence,
+            confidencePercentage: (randomConfidence * 100).toFixed(2)
+          };
+        });
+      }
       inceptionV3Predictions.sort((a, b) => b.confidence - a.confidence);
       
       // VGG19 Model Predictions
-      const vgg19Predictions = this.speciesLabels.map((species, index) => {
-        const randomConfidence = Math.random();
-        return {
+      let vgg19Predictions;
+      if (this.vgg19Model) {
+        console.log('Running VGG19 model inference...');
+        const vgg19Output = this.vgg19Model.predict(preprocessedImage);
+        const vgg19Data = await vgg19Output.data();
+        // VGG19 has 19 output classes, map first 18 to our species labels
+        vgg19Predictions = this.speciesLabels.map((species, index) => ({
           class: index,
           species: species,
-          confidence: randomConfidence,
-          confidencePercentage: (randomConfidence * 100).toFixed(2)
-        };
-      });
+          confidence: index < vgg19Data.length ? vgg19Data[index] : 0,
+          confidencePercentage: (index < vgg19Data.length ? vgg19Data[index] * 100 : 0).toFixed(2)
+        }));
+        vgg19Output.dispose();
+      } else {
+        // Mock predictions if model not loaded
+        vgg19Predictions = this.speciesLabels.map((species, index) => {
+          const randomConfidence = Math.random();
+          return {
+            class: index,
+            species: species,
+            confidence: randomConfidence,
+            confidencePercentage: (randomConfidence * 100).toFixed(2)
+          };
+        });
+      }
       vgg19Predictions.sort((a, b) => b.confidence - a.confidence);
       
       // Get top predictions from all three models
@@ -407,13 +452,13 @@ class ModelService {
         
         // Metadata
         modelsUsed: {
-          primary: this.isModelLoaded,
-          inceptionV3: this.isInceptionV3Loaded,
-          vgg19: this.isVgg19Loaded,
+          primary: !!this.model,
+          inceptionV3: !!this.inceptionV3Model,
+          vgg19: !!this.vgg19Model,
           bert: this.isBertLoaded && hasTextInput
         },
         hasTextDescription: hasTextInput,
-        note: 'Using mock predictions - models not loaded yet'
+        note: this.model || this.inceptionV3Model ? 'Using loaded TensorFlow.js models' : 'Using mock predictions - models not loaded'
       };
     } catch (error) {
       console.error('Error making prediction:', error);
