@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Button, Image, Text, View, StyleSheet, ScrollView } from "react-native";
+import { Button, Image, Text, View, StyleSheet, ScrollView, TouchableOpacity } from "react-native";
 
 export default function DetailsScreen({ route, navigation }) {
   const { 
@@ -221,6 +221,20 @@ export default function DetailsScreen({ route, navigation }) {
         )}
 
         <View style={styles.buttonContainer}>
+          <TouchableOpacity
+            style={styles.chatButton}
+            onPress={() =>
+              navigation.navigate("Chat", {
+                image,
+                prediction,
+                inceptionV3Prediction,
+                plantDescription,
+              })
+            }
+          >
+            <Text style={styles.chatButtonText}>Chat with AI</Text>
+          </TouchableOpacity>
+
           <Button 
             title="Analyze Another Plant" 
             onPress={() => navigation.goBack()} 
@@ -609,5 +623,23 @@ const styles = StyleSheet.create({
     width: '100%',
     marginTop: 10,
     marginBottom: 20,
+    gap: 15,
+  },
+  chatButton: {
+    backgroundColor: '#28A745',
+    paddingVertical: 15,
+    paddingHorizontal: 30,
+    borderRadius: 10,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 3,
+    elevation: 3,
+  },
+  chatButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: 'bold',
   },
 });

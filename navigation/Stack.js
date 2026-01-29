@@ -2,6 +2,7 @@ import React from "react";
 import { createStackNavigator } from "@react-navigation/stack";
 import Upload from "../screens/upload";
 import DetailsScreen from "../screens/details";
+import ChatScreen from "../screens/Chat";
 
 const Stack = createStackNavigator();
 
@@ -28,6 +29,13 @@ export default function AppStack() {
         component={DetailsScreen}
         options={{
           title: "Plant Details",
+        }} 
+      />
+      <Stack.Screen 
+        name="Chat"
+        component={ChatScreen}
+        options={{
+          title: "AI Chat",
         }} 
       />
     </Stack.Navigator>
