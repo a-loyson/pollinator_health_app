@@ -5,7 +5,7 @@ import SightingDetails from "../screens/SightingDetails";
 import DetailsScreen from "../screens/details";
 import MySightings from "../screens/MySightings";
 import Tabs from "./Tabs";
-import { Ionicons } from "@expo/vector-icons";
+import Collection from "../screens/Collection";
 import { StyleSheet, Pressable } from "react-native";
 
 const Stack = createStackNavigator();
@@ -48,6 +48,13 @@ export default function AppStack() {
         component={MySightings}
         options={{
           title: "My Sightings",
+        }}
+      />
+      <Stack.Screen
+        name="Collection"
+        component={Collection}
+        options={{
+          title: "Image Repository"
         }}
       />
     </Stack.Navigator>

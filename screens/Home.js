@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Button, Image, Text, View, StyleSheet, ScrollView, Alert, ActivityIndicator } from "react-native";
+import { Button, Image, Text, View, StyleSheet, ScrollView, Alert, ActivityIndicator, Pressable } from "react-native";
 import * as ImagePicker from "expo-image-picker";
 import ModelService from "../services/modelService";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -131,7 +131,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#666',
     textAlign: 'center',
-    marginBottom: 15,
+    marginBottom: "50%",
     paddingHorizontal: 10,
   },
   subtitle: {
