@@ -2,12 +2,12 @@ import React, { useState } from "react";
 import { View, Text, StyleSheet, Pressable, Image, FlatList, Alert, Dimensions } from "react-native";
 import * as ImagePicker from "expo-image-picker";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
+import { API_URL } from "../config";
 
 const NUM_COLUMNS = 3;
 const SCREEN_WIDTH = Dimensions.get("window").width;
 const IMAGE_MARGIN = 8;
-const IMAGE_SIZE =
-  (SCREEN_WIDTH - IMAGE_MARGIN * (NUM_COLUMNS * 2)) / NUM_COLUMNS;
+const IMAGE_SIZE = (SCREEN_WIDTH - IMAGE_MARGIN * (NUM_COLUMNS * 2)) / NUM_COLUMNS;
 
 export default function Collection() {
   const [images, setImages] = useState([]);
@@ -56,18 +56,36 @@ export default function Collection() {
       });
     });
 
-    console.log("Prepared FormData with", images.length, "images");
     return data;
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (images.length === 0) {
       Alert.alert("Please select at least one image");
       return;
     }
 
-    buildFormData();
-    Alert.alert(`Prepared ${images.length} images for submission`);
+    try {
+      const data = buildFormData();
+
+      const res = await fetch(`${API_URL}/api/upload-image/`, {
+        method: "POST",
+        body: data,
+      });
+
+      const json = await res.json();
+      console.log("Upload response:", json);
+
+      if (res.ok) {
+        Alert.alert("Success", "Images uploaded successfully!");
+        setImages([]);
+      } else {
+        Alert.alert("Upload failed", JSON.stringify(json));
+      }
+    } catch (err) {
+      console.log("Upload error:", err);
+      Alert.alert("Network error", err.message);
+    }
   };
 
   return (
