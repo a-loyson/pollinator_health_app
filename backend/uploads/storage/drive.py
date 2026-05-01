@@ -22,11 +22,32 @@ creds = Credentials(
 
 service = build('drive', 'v3', credentials=creds)
 
-def upload_bytes(file_bytes, filename):
+def get_or_create_user_folder(username):
+    query = f"name='{username}' and '{FOLDER_ID}' in parents and mimeType='application/vnd.google-apps.folder' and trashed=false"
+    results = service.files().list(q=query, fields="files(id, name)").execute()
+    folders = results.get("files", [])
+
+    if folders:
+        return folders[0]["id"]
+    
+    folder_metadata = {
+        "name": str(username),
+        "mimeType": "application/vnd.google-apps.folder",
+        "parents": [FOLDER_ID],
+    }
+
+    folder = service.files().create(
+        body=folder_metadata,
+        fields="id"
+    ).execute()
+
+    return folder["id"]
+def upload_bytes(file_bytes, filename, username):
+    user_folder_id = get_or_create_user_folder(username)
     media = MediaInMemoryUpload(file_bytes)
     file_metadata = {
         'name': filename,
-        'parents': [FOLDER_ID]
+        'parents': [user_folder_id]
     }
 
     file = service.files().create(

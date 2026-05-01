@@ -7,10 +7,12 @@ import MySightings from "../screens/MySightings";
 import Tabs from "./Tabs";
 import Collection from "../screens/Collection";
 import { StyleSheet, Pressable } from "react-native";
+import TermsOfService from "../screens/TermsOfService";
+import PrivacyPolicy from "../screens/PrivacyPolicy";
 
 const Stack = createStackNavigator();
 
-export default function AppStack() {
+export default function AppStack({ setIsLoggedIn }) {
   return (
     <Stack.Navigator initialRouteName="Tabs" 
       screenOptions={{
@@ -21,7 +23,11 @@ export default function AppStack() {
         headerTitleStyle: {
           fontWeight: "bold",
       },}}>
-      <Stack.Screen name = "Tabs" component={Tabs} options={{ headerShown: false }} />
+      <Stack.Screen name="Tabs" options={{ headerShown: false }}>
+        {(props) => (
+          <Tabs {...props} setIsLoggedIn={setIsLoggedIn} />
+        )}
+      </Stack.Screen>
       <Stack.Screen 
         name = "Details"
         component={DetailsScreen}
@@ -55,6 +61,20 @@ export default function AppStack() {
         component={Collection}
         options={{
           title: "Image Repository"
+        }}
+      />
+      <Stack.Screen
+        name="PrivacyPolicy"
+        component={PrivacyPolicy}
+        options={{
+          headerShown: false,
+        }}
+      />
+      <Stack.Screen
+        name="Terms"
+        component={TermsOfService}
+        options={{
+          headerShown: false,
         }}
       />
     </Stack.Navigator>

@@ -3,21 +3,20 @@ import { Button, Image, Text, View, StyleSheet, ScrollView, Alert, ActivityIndic
 import * as ImagePicker from "expo-image-picker";
 import ModelService from "../services/modelService";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { API_URL } from "../config";
 
-const resetSightings = async () => {
-  try {
-    await AsyncStorage.removeItem("sightings"); 
-    console.log("✅ AsyncStorage 'sightings' reset!");
-    Alert.alert("AsyncStorage cleared", "Sightings have been reset.");
-  } catch (e) {
-    console.log("Error resetting sightings:", e);
-    Alert.alert("Error", "Failed to reset sightings.");
-  }
-};
-
-export default function Upload({ navigation }) {
+export default function Upload({ navigation, setIsLoggedIn }) {
   const [image, setImage] = useState(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+
+    const logout = async () => {
+    await fetch(`${API_URL}/api/logout/`, {
+      method: "POST",
+      credentials: "include",
+    });
+
+    setIsLoggedIn(false);
+  };
 
   const takePhoto = async () => {
     const { status } = await ImagePicker.requestCameraPermissionsAsync();
@@ -69,7 +68,6 @@ export default function Upload({ navigation }) {
       
       console.log('Prediction result:', prediction);
       
-      // Navigate to Details screen with image and prediction results
       navigation.navigate("Details", { 
         image: image,
         prediction: prediction.topPrediction,
@@ -93,6 +91,12 @@ export default function Upload({ navigation }) {
         <Text style={styles.description}>
           Take or select a photo of a Solidago (goldenrod) plant to identify its species.
         </Text>
+        <Pressable onPress={() => navigation.navigate("PrivacyPolicy")}>
+          <Text>Privacy Policy</Text>
+        </Pressable>
+        <Pressable onPress={() => navigation.navigate("Terms")} style={{marginTop: 2}}>
+          <Text>Terms of Service</Text>
+        </Pressable>
        </View>
     </ScrollView>
   );

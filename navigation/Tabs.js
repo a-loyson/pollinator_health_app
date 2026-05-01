@@ -6,10 +6,11 @@ import Collection from "../screens/Collection";
 import { MaterialCommunityIcons, Ionicons } from "@expo/vector-icons";
 import CameraOptions from "../components/CameraOptions.js";
 import { StyleSheet, Pressable } from "react-native";
+import { API_URL } from "../config";
 
 const Tab = createBottomTabNavigator();
 
-export default function Tabs() {
+export default function Tabs({setIsLoggedIn}) {
   return (
     <Tab.Navigator
       screenOptions={({ route }) => ({
@@ -40,14 +41,21 @@ export default function Tabs() {
           headerTitleStyle: {
             fontWeight: "bold",
           },
-          // headerRight: () => (
-          //   <Pressable 
-          //     style={styles.profileButton} 
-          //     onPress={() => navigation.navigate("MySightings")}
-          //   >
-          //     <Ionicons name="person-outline" size={20} color="#EAE2DC" />
-          //   </Pressable>
-          // ),
+          headerRight: () => (
+            <Pressable
+              style={styles.profileButton}
+              onPress={async () => {
+                await fetch(`${API_URL}/api/logout/`, {
+                  method: "POST",
+                  credentials: "include",
+                });
+
+                setIsLoggedIn(false);
+              }}
+            >
+              <Ionicons name="log-out-outline" size={22} color="#dcd8ce"/>
+            </Pressable>
+          ),
           tabBarIcon: ({ focused, color }) => (
             <Ionicons
               name={focused ? "home" : "home-outline"}

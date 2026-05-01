@@ -72,7 +72,7 @@ export default function Map({ route, navigation }) {
             latitude: item.latitude,
             longitude: item.longitude,
           }}
-          title={item.species}
+          title={item.prediction?.top?.species}
           onPress={() => setSelectedPin(item)}
         />
       ))}

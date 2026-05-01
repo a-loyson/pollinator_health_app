@@ -71,6 +71,7 @@ export default function Collection() {
       const res = await fetch(`${API_URL}/api/upload-image/`, {
         method: "POST",
         body: data,
+        credentials: "include",
       });
 
       const json = await res.json();

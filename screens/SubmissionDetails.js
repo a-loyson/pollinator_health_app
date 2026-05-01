@@ -3,9 +3,8 @@ import { Button, Image, Text, TextInput, View, StyleSheet, ScrollView, Pressable
 import * as Location from "expo-location";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import ModelService from "../services/modelService";
-import { saveSighting } from "../services/SightingService";
-import AsyncStorage from "@react-native-async-storage/async-storage";
-
+import { uploadToFirebase } from "../services/uploadImage";
+import { API_URL } from "../config";
 
 export default function SubmissionDetails({ route, navigation }) {
   const { image, metadata } = route.params;
@@ -15,7 +14,7 @@ export default function SubmissionDetails({ route, navigation }) {
   const [date, setDate] = useState(metadata?.date ? new Date(metadata.date) : new Date());
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
-  const isFormValid = date && location;
+  const isFormValid = date && location !== null;
 
 
   function parseLocationString(text) {
@@ -76,40 +75,43 @@ export default function SubmissionDetails({ route, navigation }) {
 
     try {
       const prediction = await ModelService.predictSpecies(image);
-      console.log("Prediction result:", prediction);
 
-      const newSighting = {
-        image,
-        description,
-        location,
-        date: date.toISOString(),
-        prediction: {
-          top: prediction.topPrediction,
-          all: prediction.allPredictions
-        }
-      };
+      const imageUrl = await uploadToFirebase(image);
 
-      await saveSighting(newSighting);
-      console.log("Sighting saved:", newSighting);
-
-      const all = await AsyncStorage.getItem("sightings");
-      console.log("All saved sightings:", JSON.parse(all));
+      await fetch(`${API_URL}/api/sightings/create/`, {
+        method: "POST",
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          image: imageUrl,
+          description,
+          location,
+          date: date.toISOString(),
+          prediction: {
+            top: prediction.topPrediction,
+            all: prediction.allPredictions
+          }
+        }),
+      });
 
       navigation.push("Details", {
-        image,
-        prediction: newSighting.prediction.top,
-        allPredictions: newSighting.prediction.all,
+        image: imageUrl,
+        prediction: prediction.topPrediction,
+        allPredictions: prediction.allPredictions,
         description,
         location,
       });
 
     } catch (error) {
-      Alert.alert("Error", "Could not analyze image: " + error.message);
+      Alert.alert("Error", "Could not analyze image: " + error.message);;
     } finally {
+      console.log("STATUS:", res.status);
+      console.log("RESPONSE:", await res.text());
       setIsAnalyzing(false);
     }
   };
-
 
   return (
     <ScrollView style = {{ backgroundColor: "#EAE2DC" }} contentContainerStyle={{ paddingBottom: 100 }}>

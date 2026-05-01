@@ -4,7 +4,6 @@ export default function SightingDetails({ route, navigation }) {
   const { sighting } = route.params;
   console.log("SightingDetails received sighting:", sighting);
   
-  // Extract data from sighting object
   const { 
     image, 
     prediction, 
