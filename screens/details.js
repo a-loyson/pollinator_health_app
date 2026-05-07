@@ -1,11 +1,29 @@
 import { Button, Image, Text, View, StyleSheet, ScrollView } from "react-native";
 
 export default function DetailsScreen({ route, navigation }) {
-  const { image, prediction, allPredictions, description, location } = route.params;
+  const { 
+    image,
+    description,
+    location,
+    plantDescription,
+    prediction, 
+    allPredictions, 
+    primaryModelAccuracy,
+    inceptionV3Prediction,
+    inceptionV3AllPredictions,
+    inceptionV3ModelAccuracy,
+    vgg19Prediction, 
+    vgg19AllPredictions,
+    vgg19ModelAccuracy,
+    combinedAccuracy,
+    bertConfidence,
+    predictedSpecies,
+    bestModel
+  } = route.params;
 
   return (
     <ScrollView 
-      contentContainerStyle = {{paddingBottom: 100}}
+      contentContainerStyle={{paddingBottom: 100, flexGrow: 1}}
       style={styles.scrollContainer}
     >
       <View style={styles.container}>
@@ -15,8 +33,60 @@ export default function DetailsScreen({ route, navigation }) {
 
         {prediction ? (
           <>
-            <View style={styles.predictionCard}>
-              <Text style={styles.sectionTitle}>Identified Species</Text>
+            {/* Top 3 InceptionV3 Predictions */}
+            <View style={styles.modelScoresCard}>
+              <Text style={styles.modelScoresTitle}>Top Species Predictions</Text>
+              <Text style={styles.modelScoresSubtitle}>
+                InceptionV3 Model Results
+              </Text>
+              
+              {inceptionV3AllPredictions && inceptionV3AllPredictions.slice(0, 3).map((pred, index) => (
+                <View key={index} style={styles.modelScoreRow}>
+                  <View style={styles.modelScoreItem}>
+                    <Text style={styles.modelScoreName}>
+                      {index + 1}. {pred.species}
+                    </Text>
+                    <Text style={styles.modelScoreValue}>
+                      {pred.confidencePercentage}%
+                    </Text>
+                    <View style={styles.modelScoreBar}>
+                      <View 
+                        style={[
+                          styles.modelScoreBarFill, 
+                          styles.inceptionBar,
+                          { width: `${pred.confidencePercentage}%` }
+                        ]} 
+                      />
+                    </View>
+                  </View>
+                </View>
+              ))}
+            </View>
+
+            {/* Model Comparison Card - HIDDEN */}
+            {false && <View style={styles.comparisonCard}>
+              <Text style={styles.comparisonTitle}>Model Accuracy Comparison</Text>
+              <View style={styles.modelComparisonRow}>
+                <View style={styles.modelColumn}>
+                  <Text style={styles.modelLabel}>ConvNeXt</Text>
+                  <Text style={styles.modelAccuracy}>{primaryModelAccuracy || prediction.confidencePercentage}%</Text>
+                </View>
+                <View style={styles.divider} />
+                <View style={styles.modelColumn}>
+                  <Text style={styles.modelLabel}>InceptionV3</Text>
+                  <Text style={styles.modelAccuracy}>{inceptionV3ModelAccuracy ? `${inceptionV3ModelAccuracy}%` : 'N/A'}</Text>
+                </View>
+                <View style={styles.divider} />
+                <View style={styles.modelColumn}>
+                  <Text style={styles.modelLabel}>VGG19</Text>
+                  <Text style={styles.modelAccuracy}>{vgg19ModelAccuracy ? `${vgg19ModelAccuracy}%` : 'N/A'}</Text>
+                </View>
+              </View>
+            </View>}
+
+            {/* ConvNeXt Model Results - HIDDEN */}
+            {false && <View style={styles.predictionCard}>
+              <Text style={styles.sectionTitle}>ConvNeXt Model - Identified Species</Text>
               <Text style={styles.speciesName}>{prediction.species}</Text>
               <View style={styles.confidenceContainer}>
                 <Text style={styles.confidenceLabel}>Confidence:</Text>
@@ -32,11 +102,58 @@ export default function DetailsScreen({ route, navigation }) {
                   ]} 
                 />
               </View>
-            </View>
+            </View>}
 
-            {allPredictions && allPredictions.length > 1 && (
+            {/* InceptionV3 Model Results - HIDDEN */}
+            {false && inceptionV3Prediction && (
+              <View style={styles.predictionCard}>
+                <Text style={styles.sectionTitle}>InceptionV3 Model - Identified Species</Text>
+                <Text style={styles.speciesName}>{inceptionV3Prediction.species}</Text>
+                <View style={styles.confidenceContainer}>
+                  <Text style={styles.confidenceLabel}>Confidence:</Text>
+                  <Text style={styles.confidenceValue}>
+                    {inceptionV3Prediction.confidencePercentage}%
+                  </Text>
+                </View>
+                <View style={styles.progressBar}>
+                  <View 
+                    style={[
+                      styles.progressFill, 
+                      { width: `${inceptionV3Prediction.confidencePercentage}%` },
+                      styles.inceptionV3ProgressFill
+                    ]} 
+                  />
+                </View>
+              </View>
+            )}
+
+            {/* VGG19 Model Results - HIDDEN */}
+            {false && vgg19Prediction && (
+              <View style={styles.predictionCard}>
+                <Text style={styles.sectionTitle}>VGG19 Model - Identified Species</Text>
+                <Text style={styles.speciesName}>{vgg19Prediction.species}</Text>
+                <View style={styles.confidenceContainer}>
+                  <Text style={styles.confidenceLabel}>Confidence:</Text>
+                  <Text style={styles.confidenceValue}>
+                    {vgg19Prediction.confidencePercentage}%
+                  </Text>
+                </View>
+                <View style={styles.progressBar}>
+                  <View 
+                    style={[
+                      styles.progressFill, 
+                      { width: `${vgg19Prediction.confidencePercentage}%` },
+                      styles.vgg19ProgressFill
+                    ]} 
+                  />
+                </View>
+              </View>
+            )}
+
+            {/* ConvNeXt Model Alternative Predictions - HIDDEN */}
+            {false && allPredictions && allPredictions.length > 1 && (
               <View style={styles.alternativeCard}>
-                <Text style={styles.sectionTitle}>Alternative Predictions</Text>
+                <Text style={styles.sectionTitle}>ConvNeXt Model - Alternative Predictions</Text>
                 {allPredictions.slice(1).map((pred, index) => (
                   <View key={index} style={styles.alternativeItem}>
                     <Text style={styles.alternativeSpecies}>
@@ -50,14 +167,49 @@ export default function DetailsScreen({ route, navigation }) {
               </View>
             )}
 
-            <View style={styles.infoCard}>
+            {/* InceptionV3 Model Alternative Predictions - HIDDEN */}
+            {false && inceptionV3AllPredictions && inceptionV3AllPredictions.length > 1 && (
+              <View style={styles.alternativeCard}>
+                <Text style={styles.sectionTitle}>InceptionV3 Model - Alternative Predictions</Text>
+                {inceptionV3AllPredictions.slice(1).map((pred, index) => (
+                  <View key={index} style={styles.alternativeItem}>
+                    <Text style={styles.alternativeSpecies}>
+                      {index + 2}. {pred.species}
+                    </Text>
+                    <Text style={styles.alternativeConfidence}>
+                      {pred.confidencePercentage}%
+                    </Text>
+                  </View>
+                ))}
+              </View>
+            )}
+
+            {/* VGG19 Model Alternative Predictions - HIDDEN */}
+            {false && vgg19AllPredictions && vgg19AllPredictions.length > 1 && (
+              <View style={styles.alternativeCard}>
+                <Text style={styles.sectionTitle}>VGG19 Model - Alternative Predictions</Text>
+                {vgg19AllPredictions.slice(1).map((pred, index) => (
+                  <View key={index} style={styles.alternativeItem}>
+                    <Text style={styles.alternativeSpecies}>
+                      {index + 2}. {pred.species}
+                    </Text>
+                    <Text style={styles.alternativeConfidence}>
+                      {pred.confidencePercentage}%
+                    </Text>
+                  </View>
+                ))}
+              </View>
+            )}
+
+            {/* About Solidago - HIDDEN */}
+            {false && <View style={styles.infoCard}>
               <Text style={styles.infoTitle}>About Solidago (Goldenrod)</Text>
               <Text style={styles.infoText}>
                 Solidago plants are flowering plants in the family Asteraceae. 
                 They are commonly known as goldenrods and are important for 
                 pollinators, particularly bees and butterflies.
               </Text>
-            </View>
+            </View>}
           </>
         ) : (
           <View style={styles.errorCard}>
@@ -87,6 +239,7 @@ const styles = StyleSheet.create({
   container: {
     padding: 20,
     alignItems: 'center',
+    width: '100%',
   },
   title: {
     fontSize: 24,
@@ -113,6 +266,223 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.25,
     shadowRadius: 3.84,
     elevation: 5,
+  },
+  speciesCard: {
+    width: '100%',
+    backgroundColor: '#007AFF',
+    padding: 25,
+    borderRadius: 15,
+    marginBottom: 15,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4.65,
+    elevation: 6,
+  },
+  speciesTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#FFFFFF',
+    opacity: 0.9,
+    marginBottom: 8,
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+  },
+  speciesName: {
+    fontSize: 28,
+    fontWeight: 'bold',
+    color: '#FFFFFF',
+    marginBottom: 8,
+    textAlign: 'center',
+    fontStyle: 'italic',
+  },
+  speciesSubtext: {
+    fontSize: 12,
+    color: '#FFFFFF',
+    opacity: 0.8,
+    textAlign: 'center',
+  },
+  combinedAccuracyCard: {
+    width: '100%',
+    backgroundColor: '#E8E8E8',
+    padding: 25,
+    borderRadius: 15,
+    marginBottom: 15,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 3.84,
+    elevation: 5,
+    alignItems: 'center',
+  },
+  combinedAccuracyTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#666',
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+    marginBottom: 10,
+  },
+  speciesName: {
+    fontSize: 32,
+    fontWeight: 'bold',
+    color: '#007AFF',
+    marginBottom: 15,
+    textAlign: 'center',
+    fontStyle: 'italic',
+  },
+  combinedAccuracyValue: {
+    fontSize: 48,
+    fontWeight: 'bold',
+    color: '#007AFF',
+    marginBottom: 5,
+  },
+  combinedAccuracySubtext: {
+    fontSize: 12,
+    color: '#666',
+    textAlign: 'center',
+    marginTop: 5,
+    marginBottom: 8,
+  },
+  bestModelText: {
+    fontSize: 11,
+    color: '#888',
+    textAlign: 'center',
+    fontStyle: 'italic',
+  },
+  modelScoresCard: {
+    width: '100%',
+    backgroundColor: 'white',
+    padding: 20,
+    borderRadius: 15,
+    marginBottom: 15,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 3.84,
+    elevation: 3,
+  },
+  modelScoresTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#333',
+    marginBottom: 5,
+    textAlign: 'center',
+  },
+  modelScoresSubtitle: {
+    fontSize: 12,
+    color: '#888',
+    textAlign: 'center',
+    marginBottom: 20,
+    fontStyle: 'italic',
+  },
+  modelScoreRow: {
+    marginBottom: 15,
+  },
+  modelScoreItem: {
+    width: '100%',
+  },
+  modelScoreName: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#555',
+    marginBottom: 5,
+  },
+  modelScoreValue: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#333',
+    marginBottom: 8,
+  },
+  modelScoreBar: {
+    width: '100%',
+    height: 8,
+    backgroundColor: '#e0e0e0',
+    borderRadius: 4,
+    overflow: 'hidden',
+  },
+  modelScoreBarFill: {
+    height: '100%',
+    borderRadius: 4,
+  },
+  vgg19Bar: {
+    backgroundColor: '#007AFF',
+  },
+  inceptionBar: {
+    backgroundColor: '#FF9500',
+  },
+  convnextBar: {
+    backgroundColor: '#28A745',
+  },
+  bertBar: {
+    backgroundColor: '#9C27B0',
+  },
+  bertInfoContainer: {
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    paddingHorizontal: 15,
+    paddingVertical: 8,
+    borderRadius: 20,
+    marginVertical: 10,
+    alignItems: 'center',
+  },
+  bertInfoText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#fff',
+    marginBottom: 4,
+  },
+  bertConfidenceText: {
+    fontSize: 12,
+    color: '#e8f5e9',
+  },
+  comparisonCard: {
+    width: '100%',
+    backgroundColor: '#F0F8FF',
+    padding: 20,
+    borderRadius: 15,
+    marginBottom: 15,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 3.84,
+    elevation: 3,
+    borderWidth: 2,
+    borderColor: '#007AFF',
+  },
+  comparisonTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#007AFF',
+    marginBottom: 15,
+    textAlign: 'center',
+  },
+  modelComparisonRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    alignItems: 'center',
+  },
+  modelColumn: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  divider: {
+    width: 2,
+    height: 60,
+    backgroundColor: '#007AFF',
+    marginHorizontal: 10,
+  },
+  modelLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#666',
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  modelAccuracy: {
+    fontSize: 28,
+    fontWeight: 'bold',
+    color: '#007AFF',
   },
   predictionCard: {
     width: '100%',
@@ -167,6 +537,12 @@ const styles = StyleSheet.create({
     height: '100%',
     backgroundColor: '#28A745',
     borderRadius: 5,
+  },
+  inceptionV3ProgressFill: {
+    backgroundColor: '#FF9500',
+  },
+  vgg19ProgressFill: {
+    backgroundColor: '#007AFF',
   },
   alternativeCard: {
     width: '100%',

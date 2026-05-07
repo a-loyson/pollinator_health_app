@@ -9,6 +9,7 @@ import Collection from "../screens/Collection";
 import { StyleSheet, Pressable } from "react-native";
 import TermsOfService from "../screens/TermsOfService";
 import PrivacyPolicy from "../screens/PrivacyPolicy";
+import Upload from "../screens/upload";
 
 const Stack = createStackNavigator();
 
@@ -29,7 +30,7 @@ export default function AppStack({ setIsLoggedIn }) {
         )}
       </Stack.Screen>
       <Stack.Screen 
-        name = "Details"
+        name="Details"
         component={DetailsScreen}
         options={{
           title: "Species Identification Results",
@@ -80,15 +81,3 @@ export default function AppStack({ setIsLoggedIn }) {
     </Stack.Navigator>
   );
 }
-
-const styles = StyleSheet.create({
-  profileButton: {
-    backgroundColor: "#4c5345",
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    justifyContent: "center",
-    alignItems: "center",
-    marginRight: 15,
-  },
-});
