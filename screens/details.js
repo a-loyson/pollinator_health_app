@@ -4,6 +4,8 @@ import { Button, Image, Text, View, StyleSheet, ScrollView, TouchableOpacity } f
 export default function DetailsScreen({ route, navigation }) {
   const { 
     image,
+    description,
+    location,
     plantDescription,
     prediction, 
     allPredictions, 
@@ -26,8 +28,6 @@ export default function DetailsScreen({ route, navigation }) {
       style={styles.scrollContainer}
     >
       <View style={styles.container}>
-        <Text style={styles.title}>Species Identification Results</Text>
-
         <View style={styles.imageContainer}>
           <Image source={{ uri: image }} style={styles.image} />
         </View>
@@ -237,8 +237,8 @@ export default function DetailsScreen({ route, navigation }) {
 
           <Button 
             title="Analyze Another Plant" 
-            onPress={() => navigation.goBack()} 
-            color="#007AFF"
+            onPress={() => navigation.navigate("Tabs")} 
+            color="#7E8973"
           />
         </View>
       </View>
@@ -249,7 +249,7 @@ export default function DetailsScreen({ route, navigation }) {
 const styles = StyleSheet.create({
   scrollContainer: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: '#eae2dc',
   },
   container: {
     padding: 20,

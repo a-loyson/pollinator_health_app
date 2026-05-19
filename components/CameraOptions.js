@@ -7,6 +7,17 @@ import { useNavigation } from "@react-navigation/native";
 export default function CameraOptions() {
   const [showOptions, setShowOptions] = useState(false);
   const navigation = useNavigation();
+  const [nextImage, setNextImage] = useState(null);
+
+  useEffect(() => {
+    if (!showOptions && nextImage) {
+      navigation.navigate("SubmissionDetails", { 
+        image: nextImage.uri, 
+        metadata: nextImage.metadata 
+      });
+      setNextImage(null);
+    }
+  }, [showOptions]);
 
   useEffect(() => {
     (async () => {
@@ -14,34 +25,99 @@ export default function CameraOptions() {
       await ImagePicker.requestMediaLibraryPermissionsAsync();
     })();
   }, []);
-
+  
   const takePhoto = async () => {
-    setShowOptions(false);
+    const { status } = await ImagePicker.requestCameraPermissionsAsync();
+    if (status !== "granted") {
+      Alert.alert("Permission Denied", "Camera permission is required to take photos");
+      return;
+    }
+
     const result = await ImagePicker.launchCameraAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      mediaTypes: "images",
+      allowsEditing: true,
       quality: 1,
+      exif: false,
     });
+    
     if (!result.canceled) {
-      console.log("Captured photo:", result.assets[0].uri);
-      navigation.navigate("Home", {
-        screen: "SubmissionDetails",
-        params: { image: result.assets[0].uri },
+      const asset = result.assets[0];
+
+      setNextImage({
+        uri: asset.uri,
+        metadata: null,  
       });
+
+      setShowOptions(false);
     }
   };
 
   const pickImage = async () => {
-    setShowOptions(false);
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== "granted") {
+      Alert.alert("Permission Denied", "Photo library permission is required");
+      return;
+    }
+
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      mediaTypes: "images",
+      allowsEditing: false,
       quality: 1,
+      exif: true,
     });
-    if (!result.canceled) console.log("Picked image:", result.assets[0].uri);
-    navigation.navigate("Home", {
-        screen: "SubmissionDetails",
-        params: { image: result.assets[0].uri },
-      });
+
+    console.log("raw exif:" , result.assets[0].exif);
+
+    if (result.canceled) return;
+
+    const asset = result.assets[0];
+    const exif = asset.exif || {};
+
+    // ---- GPS CONVERSION ----
+    function parseGps(value, ref) {
+      if (!value) return null;
+
+      if (typeof value === "number") {
+        return ref === "S" || ref === "W" ? -value : value;
+      }
+
+      const [d, m, s] = value;
+      let decimal = d + m / 60 + s / 3600;
+      if (ref === "S" || ref === "W") decimal = -decimal;
+      return decimal;
+    }
+
+    // ---- DATE CONVERSION ----
+    function parseExifDate(dateString) {
+      if (!dateString) return null;
+
+      const parts = dateString.split(/[: ]/);
+      if (parts.length < 6) return null;
+      const [year, month, day, hour, minute, sec] = parts.map(Number);
+
+      return new Date(year, month - 1, day, hour, minute, sec).toISOString(); // <-- FIX
+    }
+
+    const gpsLat = parseGps(exif.GPSLatitude, exif.GPSLatitudeRef);
+    const gpsLon = parseGps(exif.GPSLongitude, exif.GPSLongitudeRef);
+
+    const metadata = {
+      location:
+        gpsLat && gpsLon ? { latitude: gpsLat, longitude: gpsLon } : null,
+      date: parseExifDate(exif.DateTimeOriginal),
+    };
+
+    console.log("EXIF extracted:", metadata);
+
+    // ---- IMPORTANT: only pass serializable params ----
+    setNextImage({
+      uri: asset.uri,
+      metadata,
+    });
+
+    setShowOptions(false);
   };
+
 
   return (
     <>

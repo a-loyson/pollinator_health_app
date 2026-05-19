@@ -1,12 +1,23 @@
 import React, { useState } from "react";
-import { Button, Image, Text, View, StyleSheet, ScrollView, Alert, ActivityIndicator, TextInput } from "react-native";
+import { Button, Image, Text, View, StyleSheet, ScrollView, Alert, ActivityIndicator, Pressable } from "react-native";
 import * as ImagePicker from "expo-image-picker";
 import ModelService from "../services/modelService";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { API_URL } from "../config";
 
-export default function Upload({ navigation }) {
+export default function Upload({ navigation, setIsLoggedIn }) {
   const [image, setImage] = useState(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [plantDescription, setPlantDescription] = useState('');
+
+    const logout = async () => {
+    await fetch(`${API_URL}/api/logout/`, {
+      method: "POST",
+      credentials: "include",
+    });
+
+    setIsLoggedIn(false);
+  };
 
   const takePhoto = async () => {
     const { status } = await ImagePicker.requestCameraPermissionsAsync();
@@ -58,7 +69,6 @@ export default function Upload({ navigation }) {
       
       console.log('Prediction result:', prediction);
       
-      // Navigate to Details screen with image and prediction results
       navigation.navigate("Details", { 
         image: image,
         plantDescription: plantDescription,
@@ -92,63 +102,15 @@ export default function Upload({ navigation }) {
       <View style={[styles.container, image && styles.containerWithImage]}>
         <Text style={styles.title}>Solidago Species Identifier</Text>
         <Text style={styles.description}>
-          Take or select a photo of a Solidago (goldenrod) plant to identify its species
+          Take or select a photo of a Solidago (goldenrod) plant to identify its species.
         </Text>
-
-        <View style={styles.buttonGroup}>
-          <Button title="Take a Photo" onPress={takePhoto} color="#007AFF" />
-          <Text style={styles.mobileNote}>Mobile only</Text>
-        </View>
-        
-        <View style={styles.buttonGroup}>
-          <Button title="Pick Image from Gallery" onPress={pickImage} color="#007AFF" />
-        </View>
-
-        {image && (
-          <View style={styles.previewContainer}>
-            <Text style={styles.subtitle}>Your Image:</Text>
-            <Image source={{ uri: image }} style={styles.image} />
-            
-            <View style={styles.textInputContainer}>
-              <Text style={styles.textInputLabel}>Plant Description (optional):</Text>
-              <TextInput
-                style={styles.textInput}
-                placeholder="Describe the plant (e.g., yellow flowers, tall stems, fuzzy leaves...)"  
-                placeholderTextColor="#999"
-                value={plantDescription}
-                onChangeText={setPlantDescription}
-                multiline
-                numberOfLines={3}
-              />
-              <Text style={styles.textInputHint}>
-                Providing details can improve accuracy
-              </Text>
-            </View>
-          </View>
-        )}
-
-        {image && (
-          <View style={styles.buttonGroup}>
-            <Button title="Clear Image" color="red" onPress={() => setImage(null)} />
-          </View>
-        )}
-
-        <View style={styles.buttonGroup}>
-          <Button 
-            title={isAnalyzing ? "Analyzing..." : "Identify Species"} 
-            onPress={handleRunModel}
-            disabled={!image || isAnalyzing}
-            color="#28A745"
-          />
-        </View>
-
-        {isAnalyzing && (
-          <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color="#007AFF" />
-            <Text style={styles.loadingText}>Analyzing plant image...</Text>
-          </View>
-        )}
-      </View>
+        <Pressable onPress={() => navigation.navigate("PrivacyPolicy")}>
+          <Text>Privacy Policy</Text>
+        </Pressable>
+        <Pressable onPress={() => navigation.navigate("Terms")} style={{marginTop: 2}}>
+          <Text>Terms of Service</Text>
+        </Pressable>
+       </View>
     </ScrollView>
   );
 }
@@ -157,6 +119,7 @@ const styles = StyleSheet.create({
   scrollContainer: {
     flexGrow: 1,
     paddingBottom: 100,
+    backgroundColor: "#EAE2DC",
   },
   buttonGroup: {
     marginVertical: 8, 
@@ -185,7 +148,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#666',
     textAlign: 'center',
-    marginBottom: 15,
+    marginBottom: "50%",
     paddingHorizontal: 10,
   },
   subtitle: {

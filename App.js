@@ -2,13 +2,30 @@ import "react-native-gesture-handler";
 import React, { useEffect, useState } from "react";
 import { NavigationContainer } from "@react-navigation/native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
-import Stack from "./navigation/Stack";
+import { createDrawerNavigator } from '@react-navigation/drawer';
 import { View, Text, ActivityIndicator, StyleSheet } from "react-native";
 import * as tf from '@tensorflow/tfjs';
+import AppStack from "./navigation/Stack";
+import AuthStack from "./navigation/AuthStack";
 import ModelService from "./services/modelService";
+import { API_URL } from "./config";
+import PrivacyPolicy from './screens/PrivacyPolicy';
+import TermsOfService from './screens/TermsOfService';
+
+// const Drawer = createDrawerNavigator();
+
+// export default function DrawerNavigator() {
+//   return (
+//     <Drawer.Navigator>
+//       <Drawer.Screen name="Privacy Policy" component={PrivacyPolicy} />
+//       <Drawer.Screen name="Terms of Service" component={TermsOfService} />
+//     </Drawer.Navigator>
+//   );
+// }
 
 export default function App() {
   const [isTfReady, setIsTfReady] = useState(false);
+  const [isLoggedIn, setIsLoggedIn] = useState(null); 
 
   useEffect(() => {
     async function initializeTensorFlow() {
@@ -19,7 +36,12 @@ export default function App() {
         console.log('Backend:', tf.getBackend());
         
         // Initialize model service
+        console.log("Initializing model service...");
         await ModelService.initializeTensorFlow();
+        console.log("model done");
+        console.log("Checking login...");
+        await checkLogin();
+        console.log("Login done");
         setIsTfReady(true);
       } catch (error) {
         console.error('Error initializing TensorFlow:', error);
@@ -30,11 +52,27 @@ export default function App() {
     initializeTensorFlow();
   }, []);
 
-  if (!isTfReady) {
+  async function checkLogin() {
+    try {
+      const res = await fetch(`${API_URL}/api/me/`, {
+        credentials: "include",
+      });
+
+      if (res.status === 200) {
+        setIsLoggedIn(true);
+      } else {
+        setIsLoggedIn(false);
+      }
+    } catch {
+      setIsLoggedIn(false);
+    }
+  }
+
+  if (!isTfReady || isLoggedIn === null) {
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color="#007AFF" />
-        <Text style={styles.loadingText}>Initializing AI Model...</Text>
+        <Text style={styles.loadingText}>Initializing App...</Text>
       </View>
     );
   }
@@ -42,7 +80,9 @@ export default function App() {
   return (
     <GestureHandlerRootView>
       <NavigationContainer>
-        <Stack />
+        {isLoggedIn
+          ? <AppStack setIsLoggedIn={setIsLoggedIn} />
+          : <AuthStack setIsLoggedIn={setIsLoggedIn} />}
       </NavigationContainer>
     </GestureHandlerRootView>
   );
