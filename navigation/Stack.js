@@ -3,6 +3,7 @@ import Map from "../screens/Map";
 import SubmissionDetails from "../screens/SubmissionDetails";
 import SightingDetails from "../screens/SightingDetails";
 import DetailsScreen from "../screens/details";
+import ChatScreen from "../screens/Chat";
 import MySightings from "../screens/MySightings";
 import Tabs from "./Tabs";
 import Collection from "../screens/Collection";
@@ -77,6 +78,13 @@ export default function AppStack({ setIsLoggedIn }) {
         options={{
           headerShown: false,
         }}
+      />
+      <Stack.Screen 
+        name="Chat"
+        component={ChatScreen}
+        options={{
+          title: "AI Chat",
+        }} 
       />
     </Stack.Navigator>
   );
