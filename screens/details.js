@@ -1,9 +1,11 @@
 import React, { useState } from "react";
-import { Button, Image, Text, View, StyleSheet, ScrollView } from "react-native";
+import { Button, Image, Text, View, StyleSheet, ScrollView, TouchableOpacity } from "react-native";
 
 export default function DetailsScreen({ route, navigation }) {
   const { 
     image,
+    description,
+    location,
     plantDescription,
     prediction, 
     allPredictions, 
@@ -26,8 +28,6 @@ export default function DetailsScreen({ route, navigation }) {
       style={styles.scrollContainer}
     >
       <View style={styles.container}>
-        <Text style={styles.title}>Species Identification Results</Text>
-
         <View style={styles.imageContainer}>
           <Image source={{ uri: image }} style={styles.image} />
         </View>
@@ -221,10 +221,24 @@ export default function DetailsScreen({ route, navigation }) {
         )}
 
         <View style={styles.buttonContainer}>
+          <TouchableOpacity
+            style={styles.chatButton}
+            onPress={() =>
+              navigation.navigate("Chat", {
+                image,
+                prediction,
+                inceptionV3Prediction,
+                plantDescription,
+              })
+            }
+          >
+            <Text style={styles.chatButtonText}>Chat with AI</Text>
+          </TouchableOpacity>
+
           <Button 
             title="Analyze Another Plant" 
-            onPress={() => navigation.goBack()} 
-            color="#007AFF"
+            onPress={() => navigation.navigate("Tabs")} 
+            color="#7E8973"
           />
         </View>
       </View>
@@ -235,7 +249,7 @@ export default function DetailsScreen({ route, navigation }) {
 const styles = StyleSheet.create({
   scrollContainer: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: '#eae2dc',
   },
   container: {
     padding: 20,
@@ -609,5 +623,23 @@ const styles = StyleSheet.create({
     width: '100%',
     marginTop: 10,
     marginBottom: 20,
+    gap: 15,
+  },
+  chatButton: {
+    backgroundColor: '#28A745',
+    paddingVertical: 15,
+    paddingHorizontal: 30,
+    borderRadius: 10,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 3,
+    elevation: 3,
+  },
+  chatButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: 'bold',
   },
 });

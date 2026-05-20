@@ -40,5 +40,21 @@ yarn-error.*
 /ios
 /android
 
+# django
+*.log
+*.pot
+*.pyc
+__pycache__
+db.sqlite3
+media
+
+# environment
+.env 
+.venv 
+env/ 
+venv/ 
+ENV/ 
+env.bak/ 
+venv.bak/ 
 # Model files
 *.h5

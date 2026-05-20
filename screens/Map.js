@@ -1,7 +1,8 @@
-import React, { useState } from "react";
-import { Button, Image, Text, TextInput, View, StyleSheet } from "react-native";
+import React, { useState, useEffect } from "react";
+import { Text, View, StyleSheet, Pressable, Image } from "react-native";
 import MapView, { PROVIDER_GOOGLE, Marker } from 'react-native-maps';
-import { Pressable } from "react-native-gesture-handler";
+import * as Location from "expo-location";
+import { getSightings } from "../services/SightingService"
 
 const initial_region = {
   latitude: 40.037945540082966,
@@ -11,43 +12,95 @@ const initial_region = {
 };
 
 export default function Map({ route, navigation }) {
-  const temp_locations = {
-    "Solidago_juncea": { latitude: 40.037945540082966, longitude: -75.34229987537816 },
-    "Solidago_mollis": { latitude: 40.047945540082966, longitude: -75.35229987537816 },
-    "Solidago_canadensis": { latitude: 40.057945540082966, longitude: -75.36229987537816 },
-  }; 
-  
+  const [region, setRegion] = useState(initial_region);
   const [selectedPin, setSelectedPin] = useState(null);
+  const [savedSightings, setSavedSightings] = useState([]);
+
+  useEffect(() => {
+    const unsubscribe = navigation.addListener("focus", async () => {
+      const data = await getSightings();
+
+      const cleaned = (data || []).map((s, index) => ({
+        id: index,
+        image: s.image,
+        prediction: s.prediction,
+        species: s.prediction?.top?.species,
+        date: s.date,
+        description: s.description,
+        location: s.location,
+        latitude: s.location?.latitude,
+        longitude: s.location?.longitude,
+      }));
+
+      setSavedSightings(cleaned);
+    });
+
+    return unsubscribe;
+  }, [navigation]);
+
+
+  useEffect(() => {
+    (async () => {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== "granted") return;
+
+      try {
+        const loc = await Location.getCurrentPositionAsync({});
+        setRegion((prev) => ({
+          ...prev,
+          latitude: loc.coords.latitude,
+          longitude: loc.coords.longitude,
+        }));
+      } catch (err) {
+        console.log("Location error:", err);
+      }
+    })();
+  }, []);
 
   return (
     <View style={styles.container}>
       <MapView style={styles.map} 
       provider={PROVIDER_GOOGLE} 
-      initialRegion={initial_region}
+      initialRegion={region}
       showsUserLocation={true}
       onPress={() => setSelectedPin(null)}
       >
-        {Object.entries(temp_locations).map(([name, coords]) => (
-          <Marker
-            key={name}
-            coordinate={{
-              latitude: coords.latitude,
-              longitude: coords.longitude,
-            }}
-            title={name.replace("_", " ")}
-            onPress={() => setSelectedPin({ name, coords })}
-          />
-        ))}
+      {savedSightings.map((item, index) => (
+        <Marker
+          key={index}
+          coordinate={{
+            latitude: item.latitude,
+            longitude: item.longitude,
+          }}
+          title={item.prediction?.top?.species}
+          onPress={() => setSelectedPin(item)}
+        />
+      ))}
       </MapView>
       {selectedPin && (
         <View style={styles.bottomPanel}>
-          <Text style={styles.panelTitle}>{selectedPin.name.replace("_", " ")}</Text>
-          <Pressable
-            style={styles.detailsButton}
-            onPress={() => alert(`More details about ${selectedPin.name}`)}
-          >
-            <Text style={{ color: "#EAE2DC" }}>Details</Text>
-          </Pressable>
+          <View style={styles.row}>
+            <Image
+              source={{ uri: selectedPin.image }}
+              style={styles.thumbnail}
+            />
+            <View style={styles.infoContainer}>
+              <Text style={styles.speciesText}>{selectedPin.species}</Text>
+              <Text style={styles.dateText}>
+                {new Date(selectedPin.date).toLocaleDateString()}
+              </Text>
+            <Pressable
+              style={styles.detailsButton}
+              onPress={() => {
+                console.log("navigating to details");
+                console.log(navigation.getParent())
+                navigation.navigate("SightingDetails", { sighting: selectedPin });
+              }}
+            >
+              <Text style={styles.detailsButtonText}>Details</Text>
+            </Pressable>
+            </View>
+          </View>
         </View>
       )}
     </View>
@@ -69,17 +122,36 @@ const styles = StyleSheet.create({
     right: 20,
     backgroundColor: "#EAE2DC",
     padding: 15,
-    borderRadius: 10,
+    borderRadius: 20,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.3,
     shadowRadius: 4,
     elevation: 5,
   },
-  panelTitle: {
+  row: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  infoContainer: {
+    marginLeft: 12,
+    flex: 1,
+  },
+  thumbnail: {
+  width: 80,
+  height: 80,
+  borderRadius: 10,
+  backgroundColor: "#d0d0d0",
+  },
+  speciesText: {
     fontSize: 18,
     fontWeight: "bold",
-    marginBottom: 5,
+    color: "#4c5345",
+  },
+  dateText: {
+    marginTop: 2,
+    fontSize: 14,
+    color: "#333",
   },
   detailsButton: {
     marginTop: 10,
@@ -88,5 +160,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     borderRadius: 5,
     alignItems: "center",
+  },
+  detailsButtonText: {
+  color: "#EAE2DC",
+  fontWeight: "500",
   },
 });
