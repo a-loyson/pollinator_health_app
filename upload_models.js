@@ -15,9 +15,9 @@ const path = require('path');
 
 const SERVICE_ACCOUNT_PATH = path.join(__dirname, 'pollinator-app-ede7c-firebase-adminsdk-fbsvc-9e4ecb1c1e.json');
 const MODELS_DIR = path.join(__dirname, 'models');
-const BUCKET = 'pollinator-app-ede7c.firebasestorage.app';
+const BUCKsET = 'pollinator-app-ede7c.firebasestorage.app';
 
-if (!fs.existsSync(SERVICE_ACCOUNT_PATH)) {
+if (!fs.existsSync(sSERVICE_ACCOUNT_PATH)) {
   console.error('serviceAccountKey.json not found. Download it from Firebase Console → Project Settings → Service accounts.');
   process.exit(1);
 }
