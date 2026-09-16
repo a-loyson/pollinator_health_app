@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, Pressable, Image, FlatList, Alert, Dimensions }
 import * as ImagePicker from "expo-image-picker";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { API_URL } from "../config";
+import { getAuthHeader } from "../services/authHeader";
 
 const NUM_COLUMNS = 3;
 const SCREEN_WIDTH = Dimensions.get("window").width;
@@ -67,11 +68,12 @@ export default function Collection() {
 
     try {
       const data = buildFormData();
+      const authHeader = await getAuthHeader();
 
       const res = await fetch(`${API_URL}/api/upload-image/`, {
         method: "POST",
         body: data,
-        credentials: "include",
+        headers: authHeader,
       });
 
       const json = await res.json();

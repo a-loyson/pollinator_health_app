@@ -6,22 +6,19 @@ import RegisterScreen from "../screens/Register";
 
 const Stack = createStackNavigator();
 
-export default function AuthStack({ setIsLoggedIn }) {
+export default function AuthStack() {
   return (
     <Stack.Navigator>
-      <Stack.Screen 
+      <Stack.Screen
         name="Login"
-        options={{headerShown: false}}
-      >
-        {(props) => (
-          <LoginScreen {...props} setIsLoggedIn={setIsLoggedIn} />
-        )}
-      </Stack.Screen>
-
-      <Stack.Screen 
-      name="Register" 
-      options={{headerShown: false}}
-      component={RegisterScreen} />
+        options={{ headerShown: false }}
+        component={LoginScreen}
+      />
+      <Stack.Screen
+        name="Register"
+        options={{ headerShown: false }}
+        component={RegisterScreen}
+      />
     </Stack.Navigator>
   );
 }

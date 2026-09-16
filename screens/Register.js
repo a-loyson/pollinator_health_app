@@ -1,22 +1,30 @@
 import React, { useState } from "react";
-import { View, TextInput, Button, Text, StyleSheet, TouchableOpacity } from "react-native";
-import { API_URL } from "../config";
+import { View, TextInput, Text, StyleSheet, TouchableOpacity } from "react-native";
+import { createUserWithEmailAndPassword } from "firebase/auth";
+import { auth } from "../services/firebase";
 
 export default function RegisterScreen({ navigation }) {
-  const [username, setUsername] = useState("");
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
 
   const register = async () => {
-    await fetch(`${API_URL}/api/register/`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ username, password }),
-    });
-
-    alert("Registered! Please login.");
-    navigation.navigate("Login");
+    setError("");
+    try {
+      await createUserWithEmailAndPassword(auth, email, password);
+      // onAuthStateChanged in App.js handles navigation automatically
+    } catch (e) {
+      if (e.code === "auth/email-already-in-use") {
+        setError("An account with this email already exists.");
+      } else if (e.code === "auth/weak-password") {
+        setError("Password must be at least 6 characters.");
+      } else if (e.code === "auth/invalid-email") {
+        setError("Please enter a valid email address.");
+      } else {
+        setError("Registration failed. Please try again.");
+      }
+      console.log("register error:", e);
+    }
   };
 
   return (
@@ -24,25 +32,31 @@ export default function RegisterScreen({ navigation }) {
       <Text style={styles.title}>Register</Text>
 
       <View style={styles.fieldContainer}>
-        <Text style={styles.prompt}>Username</Text>
-        <TextInput 
+        <Text style={styles.prompt}>Email</Text>
+        <TextInput
           style={styles.input}
-          placeholder="Username" 
-          onChangeText={setUsername}
+          placeholder="Enter email"
+          onChangeText={setEmail}
+          value={email}
+          autoCapitalize="none"
+          keyboardType="email-address"
         />
       </View>
       <View style={styles.fieldContainer}>
         <Text style={styles.prompt}>Password</Text>
         <TextInput
           style={styles.input}
-          placeholder="Password"
+          placeholder="Password (min 6 characters)"
           secureTextEntry
           onChangeText={setPassword}
+          value={password}
         />
       </View>
 
+      {error ? <Text style={styles.errorText}>{error}</Text> : null}
+
       <TouchableOpacity style={styles.submitButton} onPress={register}>
-          <Text style={{ color: "white", fontWeight: "bold" }}>Register</Text>
+        <Text style={{ color: "white", fontWeight: "bold" }}>Register</Text>
       </TouchableOpacity>
 
       <TouchableOpacity
@@ -67,7 +81,7 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: "bold",
     marginBottom: 20,
-    color: "#4c5345"
+    color: "#4c5345",
   },
   prompt: {
     color: "#2f2f28",
@@ -82,7 +96,14 @@ const styles = StyleSheet.create({
     padding: 12,
     marginBottom: 15,
     borderRadius: 6,
-    width: "100%", 
+    width: "100%",
+  },
+  errorText: {
+    color: "#c0392b",
+    marginBottom: 10,
+    fontSize: 14,
+    width: "85%",
+    textAlign: "center",
   },
   fieldContainer: {
     width: "85%",

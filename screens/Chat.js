@@ -11,6 +11,7 @@ import {
   ActivityIndicator,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { API_URL } from "../config";
 
 export default function ChatScreen({ route, navigation }) {
   const {
@@ -56,7 +57,7 @@ export default function ChatScreen({ route, navigation }) {
     setIsLoading(true);
 
     try {
-      const response = await fetch('https://superjacent-lachelle-geophysically.ngrok-free.dev/api/chat', {
+      const response = await fetch(`${API_URL}/api/chat/`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -74,7 +75,6 @@ export default function ChatScreen({ route, navigation }) {
         timestamp: new Date(),
       };
       setMessages((prev) => [...prev, aiMessage]);
-      setIsLoading(false);
     } catch (error) {
       console.error('Error:', error);
       const errorMessage = {
@@ -84,6 +84,8 @@ export default function ChatScreen({ route, navigation }) {
         timestamp: new Date(),
       };
       setMessages((prev) => [...prev, errorMessage]);
+    } finally {
+      setIsLoading(false);
     }
   };
 

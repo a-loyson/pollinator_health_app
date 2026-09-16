@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from "react";
-import { Button, Image, Text, TextInput, View, StyleSheet, ScrollView, Pressable } from "react-native";
+import { Button, Image, Text, TextInput, View, StyleSheet, ScrollView, Pressable, ActivityIndicator, Alert } from "react-native";
 import * as Location from "expo-location";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import ModelService from "../services/modelService";
 import { uploadToFirebase } from "../services/uploadImage";
 import { API_URL } from "../config";
+import { getAuthHeader } from "../services/authHeader";
 
 export default function SubmissionDetails({ route, navigation }) {
   const { image, metadata } = route.params;
@@ -68,7 +69,7 @@ export default function SubmissionDetails({ route, navigation }) {
   const handleSubmit = async () => {
     if (!location) {
       Alert.alert("Invalid Location", "Please enter a valid coordinate.");
-    return;
+      return;
     }
 
     setIsAnalyzing(true);
@@ -76,39 +77,58 @@ export default function SubmissionDetails({ route, navigation }) {
     try {
       const prediction = await ModelService.predictSpecies(image);
 
+      console.log("Uploading image to Firebase Storage...");
       const imageUrl = await uploadToFirebase(image);
+      console.log("Image uploaded:", imageUrl);
 
-      await fetch(`${API_URL}/api/sightings/create/`, {
-        method: "POST",
-        credentials: "include",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          image: imageUrl,
-          description,
-          location,
-          date: date.toISOString(),
-          prediction: {
-            top: prediction.topPrediction,
-            all: prediction.allPredictions
-          }
-        }),
-      });
+      // Persist the sighting to the Django backend. This is a best-effort save:
+      // the backend runs over cleartext HTTP on a LAN IP and may be unreachable
+      // from the device, which should not block the user from seeing results.
+      try {
+        const authHeader = await getAuthHeader();
+        console.log("Saving sighting to backend:", `${API_URL}/api/sightings/create/`);
+        const res = await fetch(`${API_URL}/api/sightings/create/`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            ...authHeader,
+          },
+          body: JSON.stringify({
+            image: imageUrl,
+            description,
+            location,
+            date: date.toISOString(),
+            prediction: {
+              top: prediction.topPrediction,
+              all: prediction.allPredictions,
+            },
+          }),
+        });
+        console.log("Sighting saved, status:", res.status);
+      } catch (saveError) {
+        console.log("Sighting save failed (backend unreachable?):", saveError.message);
+        Alert.alert(
+          "Saved locally only",
+          "Your species result is ready, but the sighting could not be saved to the server. Check that the backend is running and reachable."
+        );
+      }
 
       navigation.push("Details", {
         image: imageUrl,
         prediction: prediction.topPrediction,
         allPredictions: prediction.allPredictions,
+        predictedSpecies: prediction.predictedSpecies,
+        combinedAccuracy: prediction.combinedAccuracy,
+        inceptionV3Prediction: prediction.inceptionV3TopPrediction,
+        inceptionV3AllPredictions: prediction.inceptionV3AllPredictions,
+        inceptionV3ModelAccuracy: prediction.inceptionV3ModelAccuracy,
+        bestModel: prediction.bestModel,
         description,
         location,
       });
-
     } catch (error) {
-      Alert.alert("Error", "Could not analyze image: " + error.message);;
+      Alert.alert("Error", "Could not analyze image: " + error.message);
     } finally {
-      console.log("STATUS:", res.status);
-      console.log("RESPONSE:", await res.text());
       setIsAnalyzing(false);
     }
   };
@@ -155,20 +175,32 @@ export default function SubmissionDetails({ route, navigation }) {
         value={description}
         onChangeText={setDescription}
       />
-      <Pressable 
+      <Pressable
         style={[
           styles.submitButton,
           !isFormValid && { backgroundColor: "#aaa" },  // visually disabled
-        ]} 
-        onPress={handleSubmit}             
+        ]}
+        onPress={handleSubmit}
         disabled={!image || isAnalyzing || !isFormValid}>
-        <Text style={{ color: "#ffffffff" }}>Submit</Text>
+        {isAnalyzing ? (
+          <ActivityIndicator color="#ffffff" />
+        ) : (
+          <Text style={{ color: "#ffffffff" }}>Submit</Text>
+        )}
       </Pressable>
-      <Pressable style={styles.cancelButton} 
-        onPress={() => navigation.goBack()}>                  
+      <Pressable style={styles.cancelButton}
+        onPress={() => navigation.goBack()}
+        disabled={isAnalyzing}>
         <Text style={{ color: "#000000ff" }}>Cancel</Text>
       </Pressable>
     </View>
+
+    {isAnalyzing && (
+      <View style={styles.loadingOverlay}>
+        <ActivityIndicator size="large" color="#606551" />
+        <Text style={styles.loadingText}>Analyzing plant image...</Text>
+      </View>
+    )}
     </ScrollView>
   );
 }
@@ -222,9 +254,22 @@ const styles = StyleSheet.create({
     shadowRadius: 10,
     elevation: 5,
   },
+  loadingOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(234, 226, 220, 0.85)",
+    justifyContent: "center",
+    alignItems: "center",
+    zIndex: 10,
+  },
+  loadingText: {
+    marginTop: 12,
+    fontSize: 15,
+    color: "#2f2f28",
+    fontWeight: "600",
+  },
   cancelButton: {
     backgroundColor: "rgba(255, 255, 255, 1)",
-    top: 10, 
+    top: 10,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.3,

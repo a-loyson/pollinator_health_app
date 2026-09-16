@@ -1,9 +1,11 @@
 import { API_URL } from "../config";
+import { getAuthHeader } from "./authHeader";
 
 export async function getSightings() {
   try {
+    const authHeader = await getAuthHeader();
     const res = await fetch(`${API_URL}/api/sightings/`, {
-      credentials: "include",
+      headers: authHeader,
     });
 
     if (!res.ok) return [];

@@ -9,17 +9,17 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 
 // Your web app's Firebase configuration
 const firebaseConfig = {
-  apiKey: "AIzaSyBOMiVBSJ8WDMA5nrKkbjQNIkxT955AToA",
-  authDomain: "flower-prediction-6cd67.firebaseapp.com",
-  projectId: "flower-prediction-6cd67",
-  storageBucket: "flower-prediction-6cd67.firebasestorage.app",
-  messagingSenderId: "624626524973",
-  appId: "1:624626524973:web:c237324106909d305829a4"
+  apiKey: "AIzaSyDOa96WuQNUAUm9qpA7dUDM9I8sOrHj7os",
+  authDomain: "pollinator-app-ede7c.firebaseapp.com",
+  projectId: "pollinator-app-ede7c",
+  storageBucket: "pollinator-app-ede7c.firebasestorage.app",
+  messagingSenderId: "1059439499121",
+  appId: "1:1059439499121:web:09fe71594c85f1f531c8d0",
 };
 
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
-export const storage = getStorage(app);
+export const storage = getStorage(app, "gs://pollinator-app-ede7c.firebasestorage.app");
 export const auth = initializeAuth(app, {
   persistence: getReactNativePersistence(AsyncStorage),
 });

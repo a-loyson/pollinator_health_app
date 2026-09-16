@@ -22,6 +22,24 @@ export default function DetailsScreen({ route, navigation }) {
     bestModel
   } = route.params;
 
+  // The predicted species / accuracy can arrive under different param names
+  // depending on the entry screen (the submit flow only passes `prediction` and
+  // `allPredictions`). Resolve them from whatever is available.
+  const displaySpecies =
+    predictedSpecies || prediction?.species || inceptionV3Prediction?.species;
+  const displayAccuracy =
+    combinedAccuracy ??
+    prediction?.confidencePercentage ??
+    inceptionV3ModelAccuracy;
+  const topPredictions =
+    inceptionV3AllPredictions?.length
+      ? inceptionV3AllPredictions
+      : allPredictions?.length
+      ? allPredictions
+      : prediction
+      ? [prediction]
+      : [];
+
   return (
     <ScrollView 
       contentContainerStyle={{paddingBottom: 100, flexGrow: 1}}
@@ -34,14 +52,26 @@ export default function DetailsScreen({ route, navigation }) {
 
         {prediction ? (
           <>
+            {/* Predicted species + accuracy hero card */}
+            <View style={styles.combinedAccuracyCard}>
+              <Text style={styles.combinedAccuracyTitle}>Predicted Species</Text>
+              <Text style={styles.speciesName}>{displaySpecies}</Text>
+              {displayAccuracy != null && (
+                <>
+                  <Text style={styles.combinedAccuracyValue}>{displayAccuracy}%</Text>
+                  <Text style={styles.combinedAccuracySubtext}>Model Confidence</Text>
+                </>
+              )}
+            </View>
+
             {/* Top 3 InceptionV3 Predictions */}
             <View style={styles.modelScoresCard}>
               <Text style={styles.modelScoresTitle}>Top Species Predictions</Text>
               <Text style={styles.modelScoresSubtitle}>
                 InceptionV3 Model Results
               </Text>
-              
-              {inceptionV3AllPredictions && inceptionV3AllPredictions.slice(0, 3).map((pred, index) => (
+
+              {topPredictions.slice(0, 3).map((pred, index) => (
                 <View key={index} style={styles.modelScoreRow}>
                   <View style={styles.modelScoreItem}>
                     <Text style={styles.modelScoreName}>

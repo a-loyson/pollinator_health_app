@@ -14,22 +14,19 @@ import Upload from "../screens/upload";
 
 const Stack = createStackNavigator();
 
-export default function AppStack({ setIsLoggedIn }) {
+export default function AppStack() {
   return (
-    <Stack.Navigator initialRouteName="Tabs" 
+    <Stack.Navigator initialRouteName="Tabs"
       screenOptions={{
         headerStyle: {
           backgroundColor: "#dcd8ce",
-        }, 
-        headerTintColor: "#4c5345", 
+        },
+        headerTintColor: "#4c5345",
         headerTitleStyle: {
           fontWeight: "bold",
-      },}}>
-      <Stack.Screen name="Tabs" options={{ headerShown: false }}>
-        {(props) => (
-          <Tabs {...props} setIsLoggedIn={setIsLoggedIn} />
-        )}
-      </Stack.Screen>
+        },
+      }}>
+      <Stack.Screen name="Tabs" options={{ headerShown: false }} component={Tabs} />
       <Stack.Screen 
         name="Details"
         component={DetailsScreen}

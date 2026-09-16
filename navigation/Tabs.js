@@ -1,16 +1,17 @@
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import Map from "../screens/Map";
-import Home from "../screens/Home"; 
+import Home from "../screens/Home";
 import MySightings from "../screens/MySightings";
 import Collection from "../screens/Collection";
 import { MaterialCommunityIcons, Ionicons } from "@expo/vector-icons";
 import CameraOptions from "../components/CameraOptions.js";
 import { StyleSheet, Pressable } from "react-native";
-import { API_URL } from "../config";
+import { signOut } from "firebase/auth";
+import { auth } from "../services/firebase";
 
 const Tab = createBottomTabNavigator();
 
-export default function Tabs({setIsLoggedIn}) {
+export default function Tabs() {
   return (
     <Tab.Navigator
       screenOptions={({ route }) => ({
@@ -44,14 +45,7 @@ export default function Tabs({setIsLoggedIn}) {
           headerRight: () => (
             <Pressable
               style={styles.profileButton}
-              onPress={async () => {
-                await fetch(`${API_URL}/api/logout/`, {
-                  method: "POST",
-                  credentials: "include",
-                });
-
-                setIsLoggedIn(false);
-              }}
+              onPress={() => signOut(auth)}
             >
               <Ionicons name="log-out-outline" size={22} color="#dcd8ce"/>
             </Pressable>

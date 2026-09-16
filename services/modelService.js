@@ -1,20 +1,121 @@
 import * as tf from '@tensorflow/tfjs';
-import * as FileSystem from 'expo-file-system';
-import { EncodingType } from 'expo-file-system';
-import * as jpeg from 'jpeg-js';
+// Registers the React Native platform adapter (encode / isTypedArray / fetch)
+// and the rn-webgl backend. Without this side-effect import, tf.env().platform
+// is undefined on React Native and both weight loading and tf.util.encodeString
+// throw "Cannot read property 'isTypedArray'/'encode' of undefined".
+// Import the two submodules directly rather than the package barrel, which also
+// pulls in a camera helper that requires the (unused) expo-camera dependency.
+import '@tensorflow/tfjs-react-native/dist/platform_react_native';
+import { decodeJpeg } from '@tensorflow/tfjs-react-native/dist/decode_image';
+// SDK 54 moved the classic file API to the `/legacy` entry point; the root
+// `readAsStringAsync` now throws. Import the legacy API explicitly.
+import * as FileSystem from 'expo-file-system/legacy';
+import { EncodingType } from 'expo-file-system/legacy';
+import { ref, getDownloadURL } from 'firebase/storage';
+import { storage } from './firebase';
+
+// Keras 3 exports a `Normalization` preprocessing layer that tfjs has no
+// built-in implementation for. It applies (x - mean) / sqrt(variance) along
+// the given axis (and the inverse when `invert` is true). The mean/variance
+// are carried in the layer config, so no extra weights are required.
+class Normalization extends tf.layers.Layer {
+  constructor(config = {}) {
+    super(config);
+    this.axis = config.axis;
+    this.mean = config.mean;
+    this.variance = config.variance;
+    this.invert = config.invert || false;
+  }
+
+  call(inputs) {
+    return tf.tidy(() => {
+      const x = Array.isArray(inputs) ? inputs[0] : inputs;
+      const mean = tf.tensor(this.mean);
+      const std = tf.sqrt(tf.tensor(this.variance));
+      return this.invert ? x.mul(std).add(mean) : x.sub(mean).div(std);
+    });
+  }
+
+  computeOutputShape(inputShape) {
+    return inputShape;
+  }
+
+  getConfig() {
+    const config = super.getConfig();
+    Object.assign(config, {
+      axis: this.axis,
+      mean: this.mean,
+      variance: this.variance,
+      invert: this.invert,
+    });
+    return config;
+  }
+
+  static get className() {
+    return 'Normalization';
+  }
+}
+tf.serialization.registerClass(Normalization);
+
+// ConvNeXt's LayerScale: multiplies the input by a learned per-channel weight
+// `gamma` (shape [projection_dim]). tfjs has no built-in implementation.
+class LayerScale extends tf.layers.Layer {
+  constructor(config = {}) {
+    super(config);
+    this.initValues = config.init_values;
+    this.projectionDim = config.projection_dim;
+    this.gamma = null;
+  }
+
+  build(inputShape) {
+    this.gamma = this.addWeight(
+      'gamma',
+      [this.projectionDim],
+      'float32',
+      tf.initializers.constant({ value: this.initValues })
+    );
+    this.built = true;
+  }
+
+  call(inputs) {
+    return tf.tidy(() => {
+      const x = Array.isArray(inputs) ? inputs[0] : inputs;
+      return x.mul(this.gamma.read());
+    });
+  }
+
+  computeOutputShape(inputShape) {
+    return inputShape;
+  }
+
+  getConfig() {
+    const config = super.getConfig();
+    Object.assign(config, {
+      init_values: this.initValues,
+      projection_dim: this.projectionDim,
+    });
+    return config;
+  }
+
+  static get className() {
+    return 'LayerScale';
+  }
+}
+tf.serialization.registerClass(LayerScale);
 
 class ModelService {
   constructor() {
-    this.model = null;
-    this.vgg19Model = null;
+    // InceptionV3 is the sole image classifier used for predictions.
     this.inceptionV3Model = null;
-    this.bertModel = null;
-    this.isModelLoaded = false;
-    this.isVgg19Loaded = false;
     this.isInceptionV3Loaded = false;
     this.isBertLoaded = false;
     this.isTfjsReady = false;
-    
+
+    // The InceptionV3 model was exported with a 299x299x3 input and expects
+    // pixels normalized to the [-1, 1] range (the standard InceptionV3
+    // `preprocess_input` convention).
+    this.inputSize = 299;
+
     // 18 Solidago species - MUST match the order from your training data
     // Class 0 = Solidago_altissima, Class 1 = Solidago_canadensis, etc.
     this.speciesLabels = [
@@ -75,49 +176,138 @@ class ModelService {
     }
   }
 
+  // Downloads a TF.js model using React Native's native fetch, bypassing
+  // tf.loadLayersModel's HTTP handler which requires window.fetch (browser only).
+  // Models exported with Keras 3 serialize the input shape as `batch_shape`,
+  // but tfjs (Keras 2 format) expects `batch_input_shape`. Rewrite it so the
+  // layers loader can construct the InputLayer.
+  _patchKeras3Topology(node) {
+    if (Array.isArray(node)) {
+      node.forEach((n) => this._patchKeras3Topology(n));
+      return;
+    }
+    if (node && typeof node === 'object') {
+      if (node.class_name === 'InputLayer' && node.config && node.config.batch_shape && !node.config.batch_input_shape) {
+        node.config.batch_input_shape = node.config.batch_shape;
+        delete node.config.batch_shape;
+      }
+      // Keras 3 serializes dtype as a DTypePolicy object; tfjs expects a string.
+      if (node.config && node.config.dtype && typeof node.config.dtype === 'object') {
+        node.config.dtype = node.config.dtype.config?.name || 'float32';
+      }
+      // Keras 3 stores inbound_nodes as [{args, kwargs}, ...]; tfjs expects the
+      // Keras 2 form [[[layerName, nodeIndex, tensorIndex, kwargs], ...], ...].
+      if (
+        Array.isArray(node.inbound_nodes) &&
+        node.inbound_nodes.length > 0 &&
+        node.inbound_nodes[0] &&
+        !Array.isArray(node.inbound_nodes[0]) &&
+        node.inbound_nodes[0].args !== undefined
+      ) {
+        node.inbound_nodes = this._convertInboundNodes(node.inbound_nodes);
+      }
+      for (const key of Object.keys(node)) {
+        this._patchKeras3Topology(node[key]);
+      }
+    }
+  }
+
+  // Convert one layer's Keras 3 inbound_nodes ([{args, kwargs}, ...]) into the
+  // Keras 2 form tfjs expects: one array of [layerName, nodeIndex, tensorIndex,
+  // kwargs] connections per call. List args (multi-input layers like Add) are
+  // flattened into separate connections.
+  _convertInboundNodes(nodes) {
+    return nodes.map((node) => {
+      const kwargs = node.kwargs || {};
+      const connections = [];
+      const collect = (arg) => {
+        if (Array.isArray(arg)) {
+          arg.forEach(collect);
+        } else if (arg && typeof arg === 'object' && arg.class_name === '__keras_tensor__') {
+          const [name, nodeIndex, tensorIndex] = arg.config.keras_history;
+          connections.push([name, nodeIndex, tensorIndex, kwargs]);
+        }
+      };
+      (node.args || []).forEach(collect);
+      return connections;
+    });
+  }
+
+  // ConvNeXt LayerScale weights are serialized by Keras 3 as
+  // `<layer>_layer_scale/variable[_N]`. Rename them to `<layer>_layer_scale/gamma`
+  // so they bind to the custom LayerScale layer's `gamma` weight by name.
+  _patchKeras3Weights(weightsManifest) {
+    for (const group of weightsManifest || []) {
+      for (const spec of group.weights || []) {
+        spec.name = spec.name.replace(/(_layer_scale)\/variable(_\d+)?$/, '$1/gamma');
+      }
+    }
+  }
+
+  // Resolves a Firebase Storage object path to a tokenized download URL. The
+  // bucket's security rules require `request.auth != null`, so the model files
+  // cannot be fetched from their raw GCS URLs anonymously (that returns 403).
+  // getDownloadURL runs through the Firebase SDK using the signed-in user's
+  // credentials and returns a token URL that plain fetch can then read.
+  async _storageUrl(objectPath) {
+    return getDownloadURL(ref(storage, objectPath));
+  }
+
+  // `dirPath` is the Storage folder holding model.json and its weight shards,
+  // e.g. 'models/inceptionv3_tfjs'.
+  async _loadModelFromPath(dirPath) {
+    const modelJsonUrl = await this._storageUrl(`${dirPath}/model.json`);
+
+    const modelJsonResponse = await fetch(modelJsonUrl);
+    if (!modelJsonResponse.ok) {
+      throw new Error(`HTTP ${modelJsonResponse.status} fetching model.json`);
+    }
+    const modelJson = await modelJsonResponse.json();
+
+    this._patchKeras3Topology(modelJson.modelTopology);
+    this._patchKeras3Weights(modelJson.weightsManifest);
+
+    const weightsManifest = modelJson.weightsManifest || [];
+    const weightBuffers = [];
+
+    for (const group of weightsManifest) {
+      for (const path of group.paths) {
+        const url = await this._storageUrl(`${dirPath}/${path}`);
+        const res = await fetch(url);
+        if (!res.ok) throw new Error(`HTTP ${res.status} fetching ${path}`);
+        weightBuffers.push(await res.arrayBuffer());
+      }
+    }
+
+    const totalBytes = weightBuffers.reduce((n, b) => n + b.byteLength, 0);
+    const combined = new Uint8Array(totalBytes);
+    let offset = 0;
+    for (const buf of weightBuffers) {
+      combined.set(new Uint8Array(buf), offset);
+      offset += buf.byteLength;
+    }
+
+    return tf.loadLayersModel(tf.io.fromMemory({
+      modelTopology: modelJson.modelTopology,
+      weightSpecs: weightsManifest.flatMap(g => g.weights),
+      weightData: combined.buffer,
+      format: modelJson.format,
+      generatedBy: modelJson.generatedBy,
+      convertedBy: modelJson.convertedBy,
+    }));
+  }
+
   async loadModel() {
-    if (this.isModelLoaded && this.isVgg19Loaded && this.isInceptionV3Loaded && this.isBertLoaded) return;
-    
+    if (this.isInceptionV3Loaded && this.isBertLoaded) return;
+
     await this.initializeTensorFlow();
-    
+
     try {
-      // Load ConvNeXt primary model
-      if (!this.isModelLoaded) {
-        try {
-          console.log('Loading ConvNeXt model...');
-          // Load from bundled assets - for web, use public URL
-          const modelUrl = '/models/convnext_tfjs/model.json';
-          this.model = await tf.loadLayersModel(modelUrl);
-          this.isModelLoaded = true;
-          console.log('ConvNeXt model loaded successfully');
-        } catch (convnextError) {
-          console.error('Error loading ConvNeXt model:', convnextError);
-          console.log('Continuing with mock predictions for ConvNeXt');
-          this.isModelLoaded = true; // Mark as loaded to use mock predictions
-        }
-      }
-      
-      // Load VGG19 model
-      if (!this.isVgg19Loaded) {
-        try {
-          console.log('Loading VGG19 model...');
-          const modelUrl = '/models/vgg19_tfjs/model.json';
-          this.vgg19Model = await tf.loadLayersModel(modelUrl);
-          this.isVgg19Loaded = true;
-          console.log('VGG19 model loaded successfully');
-        } catch (vgg19Error) {
-          console.error('Error loading VGG19 model:', vgg19Error);
-          console.log('Continuing with mock predictions for VGG19');
-          this.isVgg19Loaded = true;
-        }
-      }
-      
-      // Load InceptionV3 model
+      // InceptionV3 is the only image classifier used for predictions.
       if (!this.isInceptionV3Loaded) {
         try {
           console.log('Loading InceptionV3 model...');
-          const modelUrl = '/models/inceptionv3_tfjs/model.json';
-          this.inceptionV3Model = await tf.loadLayersModel(modelUrl);
+          this.inceptionV3Model = await this._loadModelFromPath('models/inceptionv3_tfjs');
           this.isInceptionV3Loaded = true;
           console.log('InceptionV3 model loaded successfully');
         } catch (inceptionError) {
@@ -126,7 +316,7 @@ class ModelService {
           this.isInceptionV3Loaded = true;
         }
       }
-      
+
       // Initialize BERT text processing (keyword-based for now)
       if (!this.isBertLoaded) {
         try {
@@ -147,64 +337,34 @@ class ModelService {
   async preprocessImage(imageUri) {
     try {
       console.log('Reading image from:', imageUri);
-      
+
       // Check if FileSystem is available
       if (!FileSystem || !FileSystem.readAsStringAsync) {
         throw new Error('FileSystem module not available');
       }
-      
-      // For now, create a simple placeholder tensor to test the pipeline
-      // This bypasses the complex base64 -> JPEG decoding
-      console.log('Creating placeholder tensor (224x224x3)...');
-      
-      // Create a random tensor as placeholder (you can replace this with actual image loading later)
-      const placeholder = tf.randomUniform([1, 224, 224, 3], 0, 1);
-      
-      console.log('Placeholder tensor created:', placeholder.shape);
-      
-      return placeholder;
-      
-      /* 
-      // Original image loading code (uncomment when ready to use real images):
-      
-      // Read image as base64
+
+      const size = this.inputSize;
+
+      // Read the picked/captured image as base64 and decode the JPEG bytes.
       const imgB64 = await FileSystem.readAsStringAsync(imageUri, {
         encoding: EncodingType?.Base64 || 'base64',
       });
-      
       console.log('Image read successfully, length:', imgB64.length);
-      
+
       const imgBuffer = tf.util.encodeString(imgB64, 'base64').buffer;
       const rawImageData = new Uint8Array(imgBuffer);
-      const imageTensor = jpeg.decode(rawImageData, {useTArray: true});
-      
-      // Convert to tensor and resize to 224x224 (ConvNeXt input size)
-      const imageTensor3d = tf.tensor3d(imageTensor.data, [
-        imageTensor.height,
-        imageTensor.width,
-        4, // RGBA
-      ]);
-      
-      // Remove alpha channel (take only RGB)
-      const imageRGB = imageTensor3d.slice([0, 0, 0], [-1, -1, 3]);
-      
-      // Resize to 224x224 for ConvNeXt model
-      const resized = tf.image.resizeBilinear(imageRGB, [224, 224]);
-      
-      // Normalize to [0, 1] range
-      const normalized = resized.div(255.0);
-      
-      // Add batch dimension
-      const batched = normalized.expandDims(0);
-      
-      // Clean up intermediate tensors
-      imageTensor3d.dispose();
-      imageRGB.dispose();
-      resized.dispose();
-      normalized.dispose();
-      
-      return batched;
-      */
+
+      // decodeJpeg (tfjs-react-native) returns an [h, w, 3] int32 RGB tensor,
+      // so there is no alpha channel to strip. Resize to the model's 299x299
+      // input and normalize to [-1, 1] for InceptionV3.
+      return tf.tidy(() => {
+        const pixels = decodeJpeg(rawImageData);
+        const resized = tf.image.resizeBilinear(pixels, [size, size]);
+        const normalized = resized.div(127.5).sub(1.0); // [0,255] -> [-1,1]
+        const batched = normalized.expandDims(0);
+        console.log('Preprocessed image tensor:', batched.shape);
+        return batched;
+      });
     } catch (error) {
       console.error('Error preprocessing image:', error);
       console.error('Error details:', {
@@ -269,51 +429,23 @@ class ModelService {
   }
 
   async predictSpecies(imageUri, textDescription = '') {
-    if (!this.isModelLoaded) {
+    if (!this.isInceptionV3Loaded) {
       await this.loadModel();
     }
 
     try {
       console.log('Preprocessing image...');
       const preprocessedImage = await this.preprocessImage(imageUri);
-      
-      console.log('Creating predictions from all models...');
-      
-      // Primary Model (ConvNeXt) Predictions
-      let primaryPredictions;
-      if (this.model) {
-        console.log('Running ConvNeXt model inference...');
-        const convnextOutput = this.model.predict(preprocessedImage);
-        const convnextData = await convnextOutput.data();
-        primaryPredictions = this.speciesLabels.map((species, index) => ({
-          class: index,
-          species: species,
-          confidence: convnextData[index],
-          confidencePercentage: (convnextData[index] * 100).toFixed(2)
-        }));
-        convnextOutput.dispose();
-      } else {
-        // Mock predictions if model not loaded
-        primaryPredictions = this.speciesLabels.map((species, index) => {
-          const randomConfidence = Math.random();
-          return {
-            class: index,
-            species: species,
-            confidence: randomConfidence,
-            confidencePercentage: (randomConfidence * 100).toFixed(2)
-          };
-        });
-      }
-      primaryPredictions.sort((a, b) => b.confidence - a.confidence);
-      
-      // InceptionV3 Model Predictions
-      let inceptionV3Predictions;
+
+      console.log('Running InceptionV3 model inference...');
+
+      // InceptionV3 is the only image classifier. Build predictions in class
+      // order so they can be combined with the text scores by index.
+      let inceptionByClass;
       if (this.inceptionV3Model) {
-        console.log('Running InceptionV3 model inference...');
-        // InceptionV3 expects 224x224 input (same as our preprocessed image)
         const inceptionOutput = this.inceptionV3Model.predict(preprocessedImage);
         const inceptionData = await inceptionOutput.data();
-        inceptionV3Predictions = this.speciesLabels.map((species, index) => ({
+        inceptionByClass = this.speciesLabels.map((species, index) => ({
           class: index,
           species: species,
           confidence: inceptionData[index],
@@ -322,7 +454,7 @@ class ModelService {
         inceptionOutput.dispose();
       } else {
         // Mock predictions if model not loaded
-        inceptionV3Predictions = this.speciesLabels.map((species, index) => {
+        inceptionByClass = this.speciesLabels.map((species, index) => {
           const randomConfidence = Math.random();
           return {
             class: index,
@@ -332,133 +464,62 @@ class ModelService {
           };
         });
       }
-      inceptionV3Predictions.sort((a, b) => b.confidence - a.confidence);
-      
-      // VGG19 Model Predictions
-      let vgg19Predictions;
-      if (this.vgg19Model) {
-        console.log('Running VGG19 model inference...');
-        const vgg19Output = this.vgg19Model.predict(preprocessedImage);
-        const vgg19Data = await vgg19Output.data();
-        // VGG19 has 19 output classes, map first 18 to our species labels
-        vgg19Predictions = this.speciesLabels.map((species, index) => ({
-          class: index,
-          species: species,
-          confidence: index < vgg19Data.length ? vgg19Data[index] : 0,
-          confidencePercentage: (index < vgg19Data.length ? vgg19Data[index] * 100 : 0).toFixed(2)
-        }));
-        vgg19Output.dispose();
-      } else {
-        // Mock predictions if model not loaded
-        vgg19Predictions = this.speciesLabels.map((species, index) => {
-          const randomConfidence = Math.random();
-          return {
-            class: index,
-            species: species,
-            confidence: randomConfidence,
-            confidencePercentage: (randomConfidence * 100).toFixed(2)
-          };
-        });
-      }
-      vgg19Predictions.sort((a, b) => b.confidence - a.confidence);
-      
-      // Get top predictions from all three models
-      const primaryTopPrediction = primaryPredictions[0];
+
+      const inceptionV3Predictions = inceptionByClass
+        .slice()
+        .sort((a, b) => b.confidence - a.confidence);
       const inceptionV3TopPrediction = inceptionV3Predictions[0];
-      const vgg19TopPrediction = vgg19Predictions[0];
-      
-      // Process text description with BERT
+
+      // Process text description with BERT (keyword-based)
       console.log('Processing text description...');
       const textScores = this.processTextDescription(textDescription);
       const hasTextInput = textScores !== null;
-      
-      // Combine predictions from all models
-      // Find the highest confidence prediction across all three image models for each species
-      const maxImagePredictions = this.speciesLabels.map((species, index) => {
-        const primaryConf = primaryPredictions[index].confidence;
-        const inceptionConf = inceptionV3Predictions[index].confidence;
-        const vgg19Conf = vgg19Predictions[index].confidence;
-        
-        // Take the maximum confidence from any of the three models
-        const maxConf = Math.max(primaryConf, inceptionConf, vgg19Conf);
-        
-        // Track which model had the highest confidence
-        let bestModel = 'ConvNeXt';
-        if (inceptionConf === maxConf) bestModel = 'InceptionV3';
-        else if (vgg19Conf === maxConf) bestModel = 'VGG19';
-        
-        return {
-          class: index,
-          species: species,
-          confidence: maxConf,
-          confidencePercentage: (maxConf * 100).toFixed(2),
-          bestModel: bestModel,
-          primaryConf: primaryConf,
-          inceptionConf: inceptionConf,
-          vgg19Conf: vgg19Conf
-        };
-      });
-      
-      // Combine best image predictions with text scores
-      const combinedPredictions = this.combineModelPredictions(maxImagePredictions, textScores, 0.3);
+
+      // Combine InceptionV3 predictions with text scores
+      const combinedPredictions = this.combineModelPredictions(inceptionByClass, textScores, 0.3);
       const combinedTopPrediction = combinedPredictions[0];
-      
-      // Calculate overall combined accuracy using the top prediction from combined results
-      let combinedAccuracy;
-      if (hasTextInput) {
-        // The combined prediction already includes BERT weighting
-        combinedAccuracy = parseFloat(combinedTopPrediction.confidencePercentage).toFixed(2);
-      } else {
-        // Use the max confidence from image models
-        combinedAccuracy = parseFloat(combinedTopPrediction.confidencePercentage).toFixed(2);
-      }
-      
+      const combinedAccuracy = parseFloat(combinedTopPrediction.confidencePercentage).toFixed(2);
+
       console.log('Predictions complete');
-      console.log('Primary Model:', primaryTopPrediction);
       console.log('InceptionV3 Model:', inceptionV3TopPrediction);
-      console.log('VGG19 Model:', vgg19TopPrediction);
       console.log('Combined Accuracy:', combinedAccuracy);
       if (hasTextInput) {
         console.log('Text processing active - BERT confidence included');
       }
-      console.log('InceptionV3 Model:', inceptionV3TopPrediction);
-      console.log('VGG19 Model:', vgg19TopPrediction);
-      
+
       // Clean up tensors to prevent memory leaks
       preprocessedImage.dispose();
-      
+
       return {
         // Combined results - this is the final prediction
         combinedAccuracy: combinedAccuracy,
         combinedTopPrediction: combinedTopPrediction,
         predictedSpecies: combinedTopPrediction.species,
-        bestModel: combinedTopPrediction.bestModel,
+        bestModel: 'InceptionV3',
         bertConfidence: hasTextInput ? (textScores[combinedTopPrediction.species] * 100).toFixed(2) : null,
-        
-        // Primary model results
-        topPrediction: primaryTopPrediction,
-        allPredictions: primaryPredictions.slice(0, 3),
-        primaryModelAccuracy: primaryTopPrediction.confidencePercentage,
-        
+
+        // Primary results mirror InceptionV3 (the single classifier in use)
+        topPrediction: inceptionV3TopPrediction,
+        allPredictions: inceptionV3Predictions.slice(0, 3),
+        primaryModelAccuracy: inceptionV3TopPrediction.confidencePercentage,
+
         // InceptionV3 model results
         inceptionV3TopPrediction: inceptionV3TopPrediction,
         inceptionV3AllPredictions: inceptionV3Predictions.slice(0, 3),
         inceptionV3ModelAccuracy: inceptionV3TopPrediction.confidencePercentage,
-        
-        // VGG19 model results
-        vgg19TopPrediction: vgg19TopPrediction,
-        vgg19AllPredictions: vgg19Predictions.slice(0, 3),
-        vgg19ModelAccuracy: vgg19TopPrediction.confidencePercentage,
-        
+
+        // VGG19 is no longer used
+        vgg19TopPrediction: null,
+        vgg19AllPredictions: [],
+        vgg19ModelAccuracy: null,
+
         // Metadata
         modelsUsed: {
-          primary: !!this.model,
           inceptionV3: !!this.inceptionV3Model,
-          vgg19: !!this.vgg19Model,
           bert: this.isBertLoaded && hasTextInput
         },
         hasTextDescription: hasTextInput,
-        note: this.model || this.inceptionV3Model ? 'Using loaded TensorFlow.js models' : 'Using mock predictions - models not loaded'
+        note: this.inceptionV3Model ? 'Using InceptionV3 TensorFlow.js model' : 'Using mock predictions - model not loaded'
       };
     } catch (error) {
       console.error('Error making prediction:', error);

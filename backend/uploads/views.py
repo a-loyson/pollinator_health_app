@@ -1,113 +1,124 @@
 from django.http import JsonResponse
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
-from uploads.storage.drive import upload_bytes
 from django.views.decorators.csrf import csrf_exempt
-from django.contrib.auth import login, authenticate, logout
-from django.contrib.auth.models import User
-from django.contrib.auth.decorators import login_required
 from .models import Sighting
+from .firebase_auth import verify_token
 import json
-from uuid import uuid4
+import os
+
 
 @api_view(["GET"])
 def health(request):
     return Response({"status": "ok"})
 
-@login_required
-def me(request):
-    return JsonResponse({
-        "username": request.user.username,
-        "id": request.user.id
-    })
 
-@csrf_exempt
-def logout_view(request):
-    if request.method == "POST":
-        logout(request)
-        return JsonResponse({"message": "Logged out"})
-    
-    return JsonResponse({"error": "Invalid request"}, status=400)
-
-@csrf_exempt
-def register(request):
-    if request.method == "POST":
-        data = json.loads(request.body)
-
-        username = data.get("username")
-        password = data.get("password")
-
-        if not username or not password:
-            return JsonResponse({"error": "Missing fields"}, status=400)
-
-        if User.objects.filter(username=username).exists():
-            return JsonResponse({"error": "User already exists"}, status=400)
-
-        User.objects.create_user(username=username, password=password)
-
-        return JsonResponse({"message": "User created"})
-
-    return JsonResponse({"error": "Invalid request"}, status=400)
-
-@csrf_exempt
-def login_view(request):
-    if request.method == "POST":
-        data = json.loads(request.body)
-
-        username = data.get("username")
-        password = data.get("password")
-
-        user = authenticate(username=username, password=password)
-
-        if user is not None:
-            login(request, user)
-            return JsonResponse({"message": "Logged in"})
-
-        return JsonResponse({"error": "Invalid credentials"}, status=400)
-
-    return JsonResponse({"error": "Invalid request"}, status=400)
-
-@login_required
 @csrf_exempt
 def upload_image(request):
-    if request.method == "POST":
-        files = request.FILES.getlist("photos")
+    if request.method != "POST":
+        return JsonResponse({"error": "Invalid request"}, status=400)
 
-        uploaded_files = []
+    uid, err = verify_token(request)
+    if err:
+        return err
 
-        for file in files:
-            file_bytes = file.read()
-            filename = file.name
+    # Imported lazily: the Google Drive path needs googleapiclient, which the
+    # live app no longer uses (images upload straight to Firebase Storage).
+    from uploads.storage.drive import upload_bytes
 
-            username = str(request.user.username)
-            result = upload_bytes(file_bytes, filename, username)
-            uploaded_files.append(result)
+    files = request.FILES.getlist("photos")
+    uploaded_files = []
 
-        return JsonResponse({"files": uploaded_files})
+    for file in files:
+        file_bytes = file.read()
+        filename = file.name
+        result = upload_bytes(file_bytes, filename, uid)
+        uploaded_files.append(result)
 
-    return JsonResponse({"error": "Invalid request"}, status=400)
+    return JsonResponse({"files": uploaded_files})
 
-@login_required
+
 @csrf_exempt
 def create_sighting(request):
+    if request.method != "POST":
+        return JsonResponse({"error": "Invalid request"}, status=400)
+
+    uid, err = verify_token(request)
+    if err:
+        return err
+
     data = json.loads(request.body or "{}")
 
     sighting = Sighting.objects.create(
-    user=request.user,
-    image=data["image"],
-    description=data.get("description", ""),
-    prediction=data.get("prediction", {}),
-    location=data.get("location"),
-    date=data.get("date")
-)
+        firebase_uid=uid,
+        image=data["image"],
+        description=data.get("description", ""),
+        prediction=data.get("prediction", {}),
+        location=data.get("location"),
+        date=data.get("date"),
+    )
 
     print("CREATED:", sighting.id)
-
     return JsonResponse({"status": "ok"})
 
-@login_required
+
+@csrf_exempt
+def chat(request):
+    if request.method != "POST":
+        return JsonResponse({"error": "Invalid request"}, status=400)
+
+    data = json.loads(request.body or "{}")
+    message = (data.get("message") or "").strip()
+    species = data.get("species") or "an unidentified Solidago (goldenrod) species"
+
+    if not message:
+        return JsonResponse({"error": "Empty message"}, status=400)
+
+    # Read the OpenAI key from the environment (loaded from backend/.env via
+    # load_dotenv() in settings.py). Never hardcode the key in source.
+    api_key = os.environ.get("OPENAI_API_KEY")
+    if not api_key:
+        return JsonResponse(
+            {"response": "The chat service is not configured (missing OPENAI_API_KEY)."},
+            status=500,
+        )
+
+    try:
+        from openai import OpenAI
+
+        client = OpenAI(api_key=api_key)
+        completion = client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[
+                {
+                    "role": "system",
+                    "content": (
+                        "You are a helpful botanist assistant for a pollinator health app. "
+                        "Answer concisely and accurately about Solidago (goldenrod) species, "
+                        "their identification, ecology, and value to pollinators. "
+                        f"The plant in question was identified as: {species}."
+                    ),
+                },
+                {"role": "user", "content": message},
+            ],
+            max_tokens=500,
+        )
+        text = completion.choices[0].message.content.strip()
+        return JsonResponse({"response": text})
+    except Exception as e:
+        print("CHAT ERROR:", e)
+        return JsonResponse(
+            {"response": "Sorry, I couldn't process that request right now."},
+            status=502,
+        )
+
+
 def get_sightings(request):
-    sightings = Sighting.objects.filter(user=request.user)
+    uid, err = verify_token(request)
+    if err:
+        return err
+
+    sightings = Sighting.objects.filter(firebase_uid=uid)
 
     data = [
         {

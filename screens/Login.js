@@ -1,32 +1,20 @@
 import React, { useState } from "react";
 import { View, TextInput, Text, TouchableOpacity, StyleSheet } from "react-native";
-import { API_URL } from "../config";
-import { signInAnonymously } from "firebase/auth";
+import { signInWithEmailAndPassword } from "firebase/auth";
 import { auth } from "../services/firebase";
 
-export default function LoginScreen({ navigation, setIsLoggedIn }) {
-  const [username, setUsername] = useState("");
+export default function LoginScreen({ navigation }) {
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
 
   const login = async () => {
+    setError("");
     try {
-      const res = await fetch(`${API_URL}/api/login_view/`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        credentials: "include",
-        body: JSON.stringify({ username, password }),
-      });
-
-      if (res.status !== 200) {
-        alert("Django login failed");
-        return;
-      }
-
-      const result = await signInAnonymously(auth);
-      setIsLoggedIn(true);
+      await signInWithEmailAndPassword(auth, email, password);
+      // onAuthStateChanged in App.js handles navigation
     } catch (e) {
+      setError("Invalid email or password.");
       console.log("login error:", e);
     }
   };
@@ -37,12 +25,14 @@ export default function LoginScreen({ navigation, setIsLoggedIn }) {
       <Text style={styles.title}>Log in</Text>
 
       <View style={styles.fieldContainer}>
-        <Text style={styles.prompt}>Username</Text>
+        <Text style={styles.prompt}>Email</Text>
         <TextInput
           style={styles.input}
-          placeholder="Enter username"
-          value={username}
-          onChangeText={setUsername}
+          placeholder="Enter email"
+          value={email}
+          onChangeText={setEmail}
+          autoCapitalize="none"
+          keyboardType="email-address"
         />
 
         <Text style={styles.prompt}>Password</Text>
@@ -53,6 +43,8 @@ export default function LoginScreen({ navigation, setIsLoggedIn }) {
           value={password}
           onChangeText={setPassword}
         />
+
+        {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
         <TouchableOpacity style={styles.submitButton} onPress={login}>
           <Text style={{ color: "white", fontWeight: "bold" }}>Log in</Text>
@@ -81,7 +73,7 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: "bold",
     marginBottom: 20,
-    color: "#4c5345"
+    color: "#4c5345",
   },
   prompt: {
     color: "#2f2f28",
@@ -96,7 +88,12 @@ const styles = StyleSheet.create({
     padding: 12,
     marginBottom: 15,
     borderRadius: 6,
-    width: "100%", 
+    width: "100%",
+  },
+  errorText: {
+    color: "#c0392b",
+    marginBottom: 10,
+    fontSize: 14,
   },
   fieldContainer: {
     width: "85%",

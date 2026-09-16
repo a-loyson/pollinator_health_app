@@ -8,7 +8,8 @@ import * as tf from '@tensorflow/tfjs';
 import AppStack from "./navigation/Stack";
 import AuthStack from "./navigation/AuthStack";
 import ModelService from "./services/modelService";
-import { API_URL } from "./config";
+import { auth } from "./services/firebase";
+import { onAuthStateChanged } from "firebase/auth";
 import PrivacyPolicy from './screens/PrivacyPolicy';
 import TermsOfService from './screens/TermsOfService';
 
@@ -25,48 +26,35 @@ import TermsOfService from './screens/TermsOfService';
 
 export default function App() {
   const [isTfReady, setIsTfReady] = useState(false);
-  const [isLoggedIn, setIsLoggedIn] = useState(null); 
+  const [isLoggedIn, setIsLoggedIn] = useState(null);
 
   useEffect(() => {
     async function initializeTensorFlow() {
       try {
-        // Wait for TensorFlow.js to be ready
         await tf.ready();
         console.log('TensorFlow.js initialized');
         console.log('Backend:', tf.getBackend());
-        
-        // Initialize model service
         console.log("Initializing model service...");
         await ModelService.initializeTensorFlow();
         console.log("model done");
-        console.log("Checking login...");
-        await checkLogin();
-        console.log("Login done");
         setIsTfReady(true);
       } catch (error) {
         console.error('Error initializing TensorFlow:', error);
-        setIsTfReady(true); // Continue anyway to show app
+        setIsTfReady(true);
       }
     }
 
     initializeTensorFlow();
   }, []);
 
-  async function checkLogin() {
-    try {
-      const res = await fetch(`${API_URL}/api/me/`, {
-        credentials: "include",
-      });
-
-      if (res.status === 200) {
-        setIsLoggedIn(true);
-      } else {
-        setIsLoggedIn(false);
-      }
-    } catch {
-      setIsLoggedIn(false);
-    }
-  }
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      console.log("Checking login...");
+      setIsLoggedIn(user !== null);
+      console.log("Login done");
+    });
+    return unsubscribe;
+  }, []);
 
   if (!isTfReady || isLoggedIn === null) {
     return (
@@ -80,9 +68,7 @@ export default function App() {
   return (
     <GestureHandlerRootView>
       <NavigationContainer>
-        {isLoggedIn
-          ? <AppStack setIsLoggedIn={setIsLoggedIn} />
-          : <AuthStack setIsLoggedIn={setIsLoggedIn} />}
+        {isLoggedIn ? <AppStack /> : <AuthStack />}
       </NavigationContainer>
     </GestureHandlerRootView>
   );
