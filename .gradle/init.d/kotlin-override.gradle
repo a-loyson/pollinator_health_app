@@ -1,0 +1,16 @@
+gradle.beforeSettings { settings ->
+    settings.pluginManagement {
+        resolutionStrategy {
+            eachPlugin {
+                if (requested.id.id.startsWith("org.jetbrains.kotlin")) {
+                    useModule("org.jetbrains.kotlin:kotlin-gradle-plugin:1.9.24")
+                }
+            }
+        }
+        repositories {
+            gradlePluginPortal()
+            google()
+            mavenCentral()
+        }
+    }
+}
