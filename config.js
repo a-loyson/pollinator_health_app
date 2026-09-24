@@ -1,1 +1,1 @@
-export const API_URL = "http://192.168.12.11:8000";
+export const API_URL = "https://pollinator-health-app-tbsc.onrender.com";
