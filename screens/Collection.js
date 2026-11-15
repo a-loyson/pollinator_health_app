@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { View, Text, StyleSheet, Pressable, Image, FlatList, Alert, Dimensions } from "react-native";
 import * as ImagePicker from "expo-image-picker";
+import { File } from "expo-file-system";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { API_URL } from "../config";
 import { getAuthHeader } from "../services/authHeader";
@@ -46,15 +47,15 @@ export default function Collection() {
     setImages((prev) => prev.filter((img) => img.uri !== uri));
   };
 
+  // Expo's built-in fetch (SDK 52+) can't send React Native's legacy
+  // { uri, name, type } FormData objects ("Unsupported FormDataPart
+  // implementation"). expo-file-system's File is Blob-compatible, so the
+  // fetch can read the image bytes and filename from it directly.
   const buildFormData = () => {
     const data = new FormData();
 
-    images.forEach((image, index) => {
-      data.append("photos", {
-        uri: image.uri,
-        name: image.fileName ?? `image_${index}.jpg`,
-        type: "image/jpeg",
-      });
+    images.forEach((image) => {
+      data.append("photos", new File(image.uri));
     });
 
     return data;

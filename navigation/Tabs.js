@@ -1,7 +1,6 @@
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import Map from "../screens/Map";
 import Home from "../screens/Home";
-import MySightings from "../screens/MySightings";
 import Collection from "../screens/Collection";
 import { MaterialCommunityIcons, Ionicons } from "@expo/vector-icons";
 import CameraOptions from "../components/CameraOptions.js";
@@ -59,29 +58,6 @@ export default function Tabs() {
           ),
         })}
       />
-      <Tab.Screen
-        name="My Sightings"
-        component={MySightings}
-        options = {{
-          headerShown: true,
-          title: "My Sightings",
-          headerStyle: {
-            backgroundColor: "#dcd8ce",
-          },
-          headerTintColor: "#4c5345",
-          headerTitleStyle: {
-            fontWeight: "bold",
-          },
-            tabBarIcon: ({ focused, color }) => (
-            <Ionicons
-              name={focused ? "binoculars" : "binoculars-outline"}
-              size={28}
-              color={color}
-            />
-          ),
-        }}
-      >
-      </Tab.Screen>
       <Tab.Screen
         name="Camera"
         component={Home}

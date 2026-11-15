@@ -27,13 +27,25 @@ def upload_image(request):
     from uploads.storage.drive import upload_bytes
 
     files = request.FILES.getlist("photos")
+    if not files:
+        return JsonResponse({"error": "No photos received"}, status=400)
+
     uploaded_files = []
 
-    for file in files:
-        file_bytes = file.read()
-        filename = file.name
-        result = upload_bytes(file_bytes, filename, uid)
-        uploaded_files.append(result)
+    # Return JSON on failure: an uncaught error gives Django's HTML 500 page,
+    # which the app can't parse, hiding the real cause.
+    try:
+        for file in files:
+            file_bytes = file.read()
+            filename = file.name
+            result = upload_bytes(file_bytes, filename, uid)
+            uploaded_files.append(result)
+    except Exception as e:
+        print(f"UPLOAD ERROR ({type(e).__name__}):", e)
+        return JsonResponse(
+            {"error": f"Upload to storage failed: {e}", "uploaded": uploaded_files},
+            status=502,
+        )
 
     return JsonResponse({"files": uploaded_files})
 
@@ -76,19 +88,44 @@ def chat(request):
 
     # Read the OpenAI key from the environment (loaded from backend/.env via
     # load_dotenv() in settings.py). Never hardcode the key in source.
-    api_key = os.environ.get("OPENAI_API_KEY")
+    # Strip whitespace/quotes that often sneak in when pasting into Render's
+    # environment settings and make the key invalid.
+    api_key = (os.environ.get("OPENAI_API_KEY") or "").strip().strip('"').strip("'")
     if not api_key:
         return JsonResponse(
             {"response": "The chat service is not configured (missing OPENAI_API_KEY)."},
             status=500,
         )
 
-    try:
-        from openai import OpenAI
+    # Model can be changed from Render's environment without a code change.
+    model = os.environ.get("OPENAI_MODEL", "gpt-4o-mini").strip()
 
-        client = OpenAI(api_key=api_key)
+    try:
+        import openai
+        from openai import OpenAI
+    except ImportError:
+        print("CHAT ERROR: the 'openai' package is not installed on the server")
+        return JsonResponse(
+            {"response": "Chat is unavailable: the server is missing the OpenAI library."},
+            status=500,
+        )
+
+    # Map OpenAI failures to a short, user-safe reason (never includes the key)
+    # so the cause is visible in the app instead of a generic apology.
+    error_reasons = [
+        (openai.AuthenticationError, "the OpenAI API key was rejected (invalid or revoked)"),
+        (openai.PermissionDeniedError, "the OpenAI key does not have access to this model"),
+        (openai.NotFoundError, f"the model '{model}' is not available to this account"),
+        (openai.RateLimitError, "the OpenAI account is out of credit or over its rate limit"),
+        (openai.APITimeoutError, "the request to OpenAI timed out"),
+        (openai.APIConnectionError, "the server could not reach OpenAI"),
+        (openai.BadRequestError, "OpenAI rejected the request format"),
+    ]
+
+    try:
+        client = OpenAI(api_key=api_key, timeout=30)
         completion = client.chat.completions.create(
-            model="gpt-4o-mini",
+            model=model,
             messages=[
                 {
                     "role": "system",
@@ -106,9 +143,14 @@ def chat(request):
         text = completion.choices[0].message.content.strip()
         return JsonResponse({"response": text})
     except Exception as e:
-        print("CHAT ERROR:", e)
+        # Full detail goes to the Render logs.
+        print(f"CHAT ERROR ({type(e).__name__}):", repr(e))
+        reason = next(
+            (msg for exc_type, msg in error_reasons if isinstance(e, exc_type)),
+            f"an unexpected server error occurred ({type(e).__name__})",
+        )
         return JsonResponse(
-            {"response": "Sorry, I couldn't process that request right now."},
+            {"response": f"Sorry, I couldn't process that request: {reason}."},
             status=502,
         )
 

@@ -66,14 +66,16 @@ export default function AppStack() {
         name="PrivacyPolicy"
         component={PrivacyPolicy}
         options={{
-          headerShown: false,
+          title: "Privacy Policy",
+          headerBackTitle: "Back",
         }}
       />
       <Stack.Screen
         name="Terms"
         component={TermsOfService}
         options={{
-          headerShown: false,
+          title: "Terms of Service",
+          headerBackTitle: "Back",
         }}
       />
       <Stack.Screen 
