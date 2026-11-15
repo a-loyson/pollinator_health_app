@@ -1,7 +1,9 @@
 import { storage, auth } from "./firebase";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 
-export const uploadToFirebase = async (imageUri) => {
+// `folder` is the top-level Storage folder: "sightings" for identified
+// sightings, "repository" for the community image repository.
+export const uploadToFirebase = async (imageUri, folder = "sightings") => {
   try {
     const user = auth.currentUser;
     if (!user) throw new Error("Not authenticated");
@@ -20,8 +22,9 @@ export const uploadToFirebase = async (imageUri) => {
       xhr.send(null);
     });
 
-    // Unique file name
-    const filename = `sightings/${user.uid}/${Date.now()}.jpg`;
+    // Unique file name (random suffix so back-to-back uploads can't collide)
+    const suffix = Math.random().toString(36).slice(2, 8);
+    const filename = `${folder}/${user.uid}/${Date.now()}_${suffix}.jpg`;
     const storageRef = ref(storage, filename);
 
     await uploadBytes(storageRef, blob, { contentType: "image/jpeg" });
